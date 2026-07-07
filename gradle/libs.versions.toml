@@ -10,6 +10,11 @@ androidxTestRunner = "1.6.2"
 androidxTestRules = "1.6.1"
 androidxTestExtJunit = "1.2.1"
 junit4 = "4.13.2"
+# Room session persistence (:metawear-persistence).
+room = "2.8.4"
+# KSP >= 2.3.0 uses standalone versioning (decoupled from the Kotlin version)
+# and supports AGP 9's built-in Kotlin, which this repo relies on.
+ksp = "2.3.9"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
@@ -27,8 +32,14 @@ androidx-test-runner = { module = "androidx.test:runner", version.ref = "android
 androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidxTestRules" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
 junit4 = { module = "junit:junit", version.ref = "junit4" }
+# Room (:metawear-persistence session storage). Suspend DAOs need no room-ktx:
+# the KTX artifact merged into room-runtime in 2.7.
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 # No kotlin-android plugin: AGP 9 ships built-in Kotlin (see :metawear-core).
 android-library = { id = "com.android.library", version.ref = "agp" }
+# Room annotation processing (:metawear-persistence).
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

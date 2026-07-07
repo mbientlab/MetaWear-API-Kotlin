@@ -17,7 +17,9 @@ metawear-android/
 │                          (NordicBleTransport), unfiltered scan source
 │                          (AndroidBleScanSource), AndroidMetaWear entry point,
 │                          instrumented hardware smoke tests.
-├── metawear-persistence/← (planned) Room session storage
+├── metawear-persistence/← Android library. Room-backed log-session storage:
+│                          PersistenceStore, session/sample records, CSV export.
+│                          JVM store tests + instrumented database tests.
 ├── metawear-firmware/   ← (planned) Nordic Android DFU
 └── app/                 ← (planned) Jetpack Compose app
 ```
@@ -100,11 +102,45 @@ Transport notes:
   must be granted `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT` (API 31+) or the
   legacy `BLUETOOTH`/`ACCESS_FINE_LOCATION` pair (API ≤ 30) first.
 
+## What's in `:metawear-persistence`
+
+Room-backed storage for downloaded log sessions
+(`com.mbientlab.metawear.persistence`) — a port of the Swift
+`MetaWearPersistence` SwiftData package:
+
+| Kotlin | Ported from (Swift) |
+|---|---|
+| `SessionRecord`, `SampleRecord` (`@Entity`, cascade foreign key) | `MWSessionRecord`, `MWSampleRecord` (`@Model`) |
+| `PersistenceStore` (suspend methods over a Room DAO) | `MWPersistenceStore` (`@ModelActor` actor) |
+| `PersistenceDatabase` (one per app) | `ModelContainer` ("one container per app") |
+| `SessionSnapshot` | `MWSessionSnapshot` |
+| `Persistable` codec objects (`CartesianFloatPersistable`, …) | `MWPersistable` retroactive conformances |
+| `PersistenceException` | `MWPersistenceError` |
+
+All six supported sample types persist through one flat `(f0…f3, accuracy)`
+record layout: `Float`, `Boolean`, `CartesianFloat`, `CorrectedCartesianFloat`,
+`Quaternion`, `EulerAngles`. Swift's static protocol requirements (including on
+`Float`/`Bool`) become one singleton codec object per type. `Instant`s persist
+as epoch milliseconds; sessions are identified by store-assigned UUID strings
+and devices by their Android MAC identifier (the Swift package uses
+CoreBluetooth UUIDs for both). `PersistenceStore.exportTable` rebuilds a
+`DataTable` for CSV export straight from the database.
+
+Room's annotation processing runs through KSP — the standalone-versioned
+KSP ≥ 2.3 line, which works with AGP 9's built-in Kotlin. All 42 Swift
+persistence tests are ported as JVM unit tests (store logic runs against an
+in-memory fake of the DAO interface), and an instrumented suite re-checks what
+the fake can only mirror — the generated SQL's sort orders and counts, the
+foreign-key cascade, and the epoch-millis converter — against a real Room
+database on-device.
+
 ## Build & test
 
 ```bash
-./gradlew :metawear-protocol:test        # ported parsing/command/transport tests (JVM)
-./gradlew :metawear-core:assembleDebug   # Android transport library (AAR)
+./gradlew :metawear-protocol:test                    # ported parsing/command/transport tests (JVM)
+./gradlew :metawear-core:assembleDebug               # Android transport library (AAR)
+./gradlew :metawear-persistence:testDebugUnitTest    # ported persistence tests (JVM)
+./gradlew :metawear-persistence:connectedAndroidTest # Room round-trips (needs a device)
 ```
 
 Opens directly in Android Studio; the Kotlin toolchain targets JDK 21.
