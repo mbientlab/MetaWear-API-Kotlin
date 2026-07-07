@@ -14,8 +14,12 @@ kotlin {
 dependencies {
     // Instant for Timestamped / LoggedSample. KMP-friendly time type.
     api(libs.kotlinx.datetime)
+    // Flow / suspend in the BleTransport seam (pure JVM, KMP-friendly).
+    api(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.junit.jupiter)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
