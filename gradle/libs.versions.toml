@@ -17,6 +17,17 @@ room = "2.8.4"
 ksp = "2.3.9"
 # Nordic Android DFU library (:metawear-firmware).
 nordicDfu = "2.9.0"
+# ---- :app (Compose demo app) ----
+# AGP 9.2.1's built-in Kotlin embeds the 2.2.10 compiler (see the
+# kotlin-compiler-embeddable it resolves), so the Compose compiler Gradle
+# plugin must be 2.2.10 too — NOT the 2.1.20 used by the pure-JVM module's
+# explicit org.jetbrains.kotlin.jvm plugin.
+kotlinComposePlugin = "2.2.10"
+composeBom = "2025.06.01"
+activityCompose = "1.10.1"
+navigationCompose = "2.9.0"
+lifecycleViewmodelCompose = "2.9.1"
+androidxCore = "1.16.0"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
@@ -41,6 +52,15 @@ androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref =
 # Nordic Android DFU library — delegate/broadcast-based firmware flasher
 # wrapped into a Flow by :metawear-firmware's DfuSession.
 nordic-dfu = { module = "no.nordicsemi.android:dfu", version.ref = "nordicDfu" }
+# ---- :app (Compose demo app) ----
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -48,3 +68,8 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 # Room annotation processing (:metawear-persistence).
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+# :app — Compose demo app. The Compose compiler Gradle plugin version must
+# match AGP's *embedded* Kotlin compiler (2.2.10 for AGP 9.2.1), which is what
+# actually compiles Android modules under built-in Kotlin.
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlinComposePlugin" }

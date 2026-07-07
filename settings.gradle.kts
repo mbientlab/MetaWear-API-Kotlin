@@ -37,3 +37,7 @@ include(":metawear-persistence")
 // Step 4: Nordic-DFU firmware updates — port of the Swift MetaWearFirmware
 // package (catalog client, bootloader interlock, DFU orchestration).
 include(":metawear-firmware")
+
+// Step 5: Jetpack Compose demo app — port of the SwiftUI MetaWear app
+// (scan, live stream, logging, sessions, controls, settings, firmware, demo mode).
+include(":app")

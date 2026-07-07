@@ -24,7 +24,12 @@ metawear-android/
 │                          release-catalog client, bootloader interlock,
 │                          Flow-based DFU progress, MetaWearDevice extensions.
 │                          JVM unit tests (catalog/version/interlock logic).
-└── app/                 ← (planned) Jetpack Compose app
+└── app/                 ← Jetpack Compose demo app. Port of the SwiftUI
+                           MetaWear app: scan, live streaming with ring-buffer
+                           decimation, on-device logging + download, session
+                           history with CSV export, LED/haptic controls, device
+                           settings, firmware updates, and a hardware-free demo
+                           mode (protocol-level MetaMotion S emulator).
 ```
 
 `:metawear-protocol` is the foundation everything else builds on, ported
@@ -179,6 +184,57 @@ Android specifics:
   `MetaBootProbe` wrappers mirror the Swift package's stance: hardware-only,
   no unit-test coverage.
 
+## What's in `:app`
+
+A Jetpack Compose port of the SwiftUI MetaWear app (`Apps/MetaWear` in the
+Swift repo), lean but feature-complete:
+
+- **Scan** — runtime BLE permission flow (`BLUETOOTH_SCAN`/`CONNECT` on 31+,
+  fine location on 26–30), nearby devices from the SDK scanner's StateFlows
+  (name, RSSI), remembered devices persisted by MAC.
+- **Device hub** — connection state badge, model/firmware/battery summary,
+  identify (LED flash), reconnect/disconnect, feature navigation.
+- **Live stream** — multi-sensor picker (accelerometer, gyroscope,
+  magnetometer, and all seven sensor-fusion outputs, with ODR/range chips and
+  a 100 Hz BLE bandwidth advisor), a dependency-free Canvas line chart, live
+  xyz readout, and true effective-Hz. Port of the Swift `Channel` hot-path
+  pattern: samples ingest into plain ring buffers on a background coroutine
+  (full-resolution capture + 1-in-N decimated display ring) and a ~33 ms
+  ticker snapshots into Compose state — nothing touches UI state at sensor
+  rate. Stop archives each channel to session history; buffers export as CSV.
+- **Logging** — start/stop multi-sensor flash logging, elapsed clock, then a
+  single raw download drain with progress, per-sensor typed decode, and
+  persistence via `PersistenceStore`.
+- **Sessions** — history list (label, sample count, time span) with
+  `epoch,elapsed_ms,…` CSV export shared through the system sheet
+  (FileProvider + `ACTION_SEND`) and delete.
+- **Controls** — LED color/pattern presets with play/stop, haptic motor
+  strength/pulse-width sliders, buzzer pulse.
+- **Settings** — validated advertising rename, advertising interval/timeout,
+  TX power, and a confirm-dialog factory reset.
+- **Firmware** — catalog update check plus a Nordic-DFU update flow with
+  state/progress UI.
+- **Demo mode** — `DemoBleTransport`, a protocol-level MetaMotion S emulator
+  (port of the Swift `DemoBLETransport`): module discovery, device-info /
+  battery / MAC / log reads, synthetic waveforms on every sensor including
+  packed registers and fusion outputs, and a full logging round trip. The
+  scan screen offers it via a toggle (and suggests it when Bluetooth is off),
+  so the entire app runs on an emulator with no hardware. The demo pipeline is
+  exercised end-to-end by JVM unit tests through the real `MetaWearDevice`.
+
+Deliberate cuts vs the Swift app: environmental sensors (barometer,
+temperature, humidity, ambient light) and their polled loggers; iCloud device
+sync and the peripheral-UUID/MAC reconciliation (Android's identifier *is*
+the MAC); pending log-session records don't survive process death (the SDK's
+`recoverLoggers` covers that path at the API level).
+
+Install on a device or emulator:
+
+```bash
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
+  ./gradlew :app:installDebug
+```
+
 ## Build & test
 
 ```bash
@@ -187,11 +243,16 @@ Android specifics:
 ./gradlew :metawear-persistence:testDebugUnitTest    # ported persistence tests (JVM)
 ./gradlew :metawear-persistence:connectedAndroidTest # Room round-trips (needs a device)
 ./gradlew :metawear-firmware:testDebugUnitTest       # ported firmware tests (JVM)
+./gradlew :app:testDebugUnitTest                     # app logic + demo-emulator tests (JVM)
+./gradlew :app:assembleDebug                         # Compose app APK
 ```
 
 Opens directly in Android Studio; the Kotlin toolchain targets JDK 21.
 `:metawear-core` uses AGP 9's built-in Kotlin (no `org.jetbrains.kotlin.android`
-plugin — AGP 8.x does not run on this repo's Gradle 9.6).
+plugin — AGP 8.x does not run on this repo's Gradle 9.6). `:app` adds the
+Compose compiler Gradle plugin (`org.jetbrains.kotlin.plugin.compose`) pinned
+to **2.2.10 — AGP 9.2.1's embedded Kotlin compiler version**, not the 2.1.20
+used by the pure-JVM module's explicit Kotlin plugin.
 
 ### Hardware smoke tests
 
