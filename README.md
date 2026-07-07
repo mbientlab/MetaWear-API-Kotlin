@@ -1,9 +1,9 @@
 # MetaWear Android SDK (Kotlin)
 
-A coroutine/Flow-native Kotlin port of the [MetaWear Swift SDK](../MetaWear-API-Swift),
-built for Android. Structured **KMP-ready, Android-only**: the pure protocol/parsing
-layer has zero Android dependencies and is unit-tested on a plain JVM, while the
-transport and app layers are Android-specific.
+A coroutine/Flow-native Kotlin SDK for MbientLab MetaWear sensors, built for
+Android. Structured **KMP-ready, Android-only**: the pure protocol/parsing
+layer has zero Android dependencies and is unit-tested on a plain JVM, while
+the transport and app layers are Android-specific.
 
 ## Module layout
 
@@ -24,79 +24,84 @@ metawear-android/
 │                          release-catalog client, bootloader interlock,
 │                          Flow-based DFU progress, MetaWearDevice extensions.
 │                          JVM unit tests (catalog/version/interlock logic).
-└── app/                 ← Jetpack Compose demo app. Port of the SwiftUI
-                           MetaWear app: scan, live streaming with ring-buffer
-                           decimation, on-device logging + download, session
-                           history with CSV export, LED/haptic controls, device
-                           settings, firmware updates, and a hardware-free demo
-                           mode (protocol-level MetaMotion S emulator).
+└── app/                 ← Jetpack Compose demo app: scan, live streaming with
+                           ring-buffer decimation, on-device logging + download,
+                           session history with CSV export, LED/haptic controls,
+                           device settings, firmware updates, and a
+                           hardware-free demo mode (protocol-level MetaMotion S
+                           emulator).
 ```
 
-`:metawear-protocol` is the foundation everything else builds on, ported
+`:metawear-protocol` is the foundation everything else builds on, written
 test-first to lock wire-format correctness before any BLE code. The full
 vertical slice — scan → connect → `startStream(accelerometer)` →
 `Flow<Timestamped<CartesianFloat>>` — runs end-to-end against `MockBleTransport`
 on the JVM, and against real hardware via `:metawear-core`'s smoke suite.
 
+The repo carries **1173 JVM tests** across the four testable modules
+(1004 protocol + 42 persistence + 66 firmware + 61 app), plus instrumented
+suites that need a device.
+
 ## What's in `:metawear-protocol`
 
-| Kotlin | Ported from (Swift) |
-|---|---|
-| `protocol.Module`, `protocol.Packet` | `MWModule.swift` |
-| `protocol.PacketParser` | `MWPacketParser.swift` |
-| `protocol.{Sensor, Streamable, Loggable, Readable, Command, CommandSequence, Pollable}` | `MWActions.swift` |
-| `model.{CartesianFloat, Quaternion, EulerAngles, …, Timestamped, Frequency, ModuleInfo}` | `MWTypes.swift` |
-| `model.MetaWearException` | `MWError.swift` |
-| `model.BoardModel` | `MWModel.swift` |
-| `sensor.BoschImuSensor` | `MWBoschIMUSensor.swift` |
-| `sensor.{AccelerometerBmi160, AccelerometerBmi270}` | `MWAccelerometer.swift` |
-| `transport.{BleTransport, ScanResult, WriteType}` | `BLETransport.swift` |
-| `transport.MockBleTransport` | `MockBLETransport.swift` |
-| `transport.Uuids` | `MWUUIDs.swift` |
-| `protocol.ProtocolRouter` | `MWProtocolLayer.swift` |
-| `MetaWearDevice`, `DeviceState` | `MetaWearDevice.swift` (connection, state machine, streaming, send/read/poll slice) |
-| `MetaWearScanner` | `MetaWearScanner.swift` |
-| `sensor.{Gyroscope*, Magnetometer, AccelerometerBosch, AccelerometerBmi270Features/Steps}` | `MWGyroscope/MWMagnetometer/MWAccelerometer.swift` |
-| `sensor.{SensorFusion*, SensorFusionCalibration}` | `MWSensorFusion.swift` |
-| `sensor.{Barometer, Altimeter, AmbientLight, Thermometer, Humidity}` | `MWBarometer/MWAmbientLight/MWTemperature/MWHumidity.swift` |
-| `sensor.{Led, Haptic, Switch, IBeacon, Debug, Settings}` | `MWLED/MWHaptic/MWSwitch/MWiBeacon/MWDebug/MWSettings.swift` |
-| `sensor.{MetaWearTimer, Event, Macro, Gpio, Serial}` | `MWTimer/MWEvent/MWMacro/MWGPIO/MWSerial.swift` |
-| `sensor.{DataProcessor, DataProcessorSignals, MiscReadables}` | `MWDataProcessor/MWMiscReadables.swift` |
+The pure-JVM protocol layer (`com.mbientlab.metawear`):
+
+- `protocol.Module`, `protocol.Packet`, `protocol.PacketParser` — module
+  opcodes, command packet builder, and notification parser. All multi-byte
+  payloads are little-endian.
+- `protocol.{Sensor, Streamable, Loggable, Readable, Command, CommandSequence,
+  Pollable}` — the capability interfaces every sensor module implements.
+- `model.*` — pure value types: `CartesianFloat`, `Quaternion`, `EulerAngles`,
+  `Timestamped`, `Frequency`, `ModuleInfo`, `BoardModel`, `BoardState`,
+  `AnonymousSignal`, `DataTable` (CSV export), and the `MetaWearException`
+  hierarchy.
+- `sensor.*` — one namespace per board module: accelerometers (BMI160/BMI270
+  plus the Bosch interrupt surface and BMI270 step/activity features),
+  gyroscopes, magnetometer, sensor fusion + calibration, barometer/altimeter,
+  ambient light, thermometer, humidity, LED, haptic, switch, iBeacon, debug,
+  settings, timers, events, macros, GPIO, serial passthrough, data processors,
+  and misc readables.
+- `transport.{BleTransport, ScanResult, WriteType}` + `MockBleTransport` — the
+  platform-agnostic BLE seam and its scriptable JVM mock.
+- `protocol.ProtocolRouter` — routes BLE notifications between the transport
+  and the sensor modules.
+- `MetaWearDevice`, `DeviceState`, `MetaWearScanner` — connection state
+  machine, streaming, send/read/poll surface, and scanner.
 
 The transport *interface* lives here (it is pure JVM: `java.util.UUID`,
-`ByteArray`, `Flow`) so the upcoming protocol router and device layer stay
+`ByteArray`, `Flow`) so the protocol router and device layer stay
 JVM-testable against `MockBleTransport`. Only the Nordic-backed implementation
 is Android-specific and belongs in `:metawear-core`.
 
-Android adaptation to note: the Swift `ScanResult.identifier` is a CoreBluetooth
-`UUID`; on Android peripherals are identified by MAC address, so the seam uses
-an opaque `String`.
+Peripherals are identified by their Android MAC address, so the transport seam
+uses an opaque `String` identifier.
 
-All 22 Swift module files are ported, plus the full device-side logging
+All 22 board modules are covered, plus the full device-side logging
 surface: `startLogging`/`stopLogging` (including polled readables via the
 timer→event→logger chain and processor handles), `downloadLogs` with chunk
 reassembly and watchdog, `clearLog`/`flushLogPage`, logger/processor query and
 recovery, anonymous-signal reconstruction, `factoryReset`, board-state
-capture/restore, and `DataTable` CSV export. Data-processor streaming matches
-the Swift per-id demux (`processorDemuxTask`/`processorContinuations`): one
-shared `(0x09, 0x03)` subscription fans packets out to per-processor-id flows,
-so multiple processors stream simultaneously; the flows complete cleanly on an
-intentional disconnect and fail with the underlying error on an unexpected one.
+capture/restore, and `DataTable` CSV export. Data-processor streaming uses a
+per-id demux: one shared `(0x09, 0x03)` subscription fans packets out to
+per-processor-id flows, so multiple processors stream simultaneously; the
+flows complete cleanly on an intentional disconnect and fail with the
+underlying error on an unexpected one.
 
-**Test parity: 1004 JVM tests vs 932 in the Swift package's no-hardware suite**
-(the Kotlin suite adds coverage for paths Swift only exercises on hardware).
+**1004 JVM tests** cover this module, including reference byte vectors from
+the MetaWear C++ SDK's Python test suite.
 
 ## What's in `:metawear-core`
 
 The Android-only transport layer (`com.mbientlab.metawear.core`), built on the
 [Nordic Kotlin BLE Library](https://github.com/NordicSemiconductor/Kotlin-BLE-Library):
 
-| Kotlin | Ported from (Swift) |
-|---|---|
-| `NordicBleTransport` | `CoreBluetoothPeripheralTransport.swift` (per-peripheral connect/write/read/notify/RSSI) |
-| `AndroidBleScanSource` | `MWCentralManager.swift` (the scanning half) |
-| `AndroidMetaWear` | `MetaWearScanner()` default wiring |
-| `androidTest/HardwareSupport`, `HardwareSmokeTest` + 10 per-module suites (gyro BMI270, magnetometer, sensor fusion, switch, haptic, GPIO, settings, logging round-trip, environment, one-shot reads) | `Tests/MetaWearHardwareTests` (highest-value subset; suites self-skip without a board) |
+- `NordicBleTransport` — per-peripheral connect/write/read/notify/RSSI.
+- `AndroidBleScanSource` — the unfiltered BLE scan source.
+- `AndroidMetaWear` — default `MetaWearScanner()` wiring.
+- `androidTest/HardwareSupport`, `HardwareSmokeTest` + 10 per-module suites
+  (gyro BMI270, magnetometer, sensor fusion, switch, haptic, GPIO, settings,
+  logging round-trip, environment, one-shot reads); suites self-skip without
+  a board.
 
 Transport notes:
 - `connect()` retries Android's transient status-133 (`GATT_ERROR`) failures,
@@ -115,52 +120,49 @@ Transport notes:
 ## What's in `:metawear-persistence`
 
 Room-backed storage for downloaded log sessions
-(`com.mbientlab.metawear.persistence`) — a port of the Swift
-`MetaWearPersistence` SwiftData package:
+(`com.mbientlab.metawear.persistence`):
 
-| Kotlin | Ported from (Swift) |
-|---|---|
-| `SessionRecord`, `SampleRecord` (`@Entity`, cascade foreign key) | `MWSessionRecord`, `MWSampleRecord` (`@Model`) |
-| `PersistenceStore` (suspend methods over a Room DAO) | `MWPersistenceStore` (`@ModelActor` actor) |
-| `PersistenceDatabase` (one per app) | `ModelContainer` ("one container per app") |
-| `SessionSnapshot` | `MWSessionSnapshot` |
-| `Persistable` codec objects (`CartesianFloatPersistable`, …) | `MWPersistable` retroactive conformances |
-| `PersistenceException` | `MWPersistenceError` |
+- `SessionRecord`, `SampleRecord` — Room `@Entity` types with a cascade
+  foreign key (deleting a session deletes its samples).
+- `PersistenceStore` — suspend methods over a Room DAO.
+- `PersistenceDatabase` — create one per app.
+- `SessionSnapshot` — immutable session summary.
+- `Persistable` codec objects (`CartesianFloatPersistable`, …) — one singleton
+  codec per supported sample type.
+- `PersistenceException` — the store's error taxonomy.
 
 All six supported sample types persist through one flat `(f0…f3, accuracy)`
 record layout: `Float`, `Boolean`, `CartesianFloat`, `CorrectedCartesianFloat`,
-`Quaternion`, `EulerAngles`. Swift's static protocol requirements (including on
-`Float`/`Bool`) become one singleton codec object per type. `Instant`s persist
-as epoch milliseconds; sessions are identified by store-assigned UUID strings
-and devices by their Android MAC identifier (the Swift package uses
-CoreBluetooth UUIDs for both). `PersistenceStore.exportTable` rebuilds a
-`DataTable` for CSV export straight from the database.
+`Quaternion`, `EulerAngles`. `Instant`s persist as epoch milliseconds;
+sessions are identified by store-assigned UUID strings and devices by their
+Android MAC identifier. `PersistenceStore.exportTable` rebuilds a `DataTable`
+for CSV export straight from the database.
 
 Room's annotation processing runs through KSP — the standalone-versioned
-KSP ≥ 2.3 line, which works with AGP 9's built-in Kotlin. All 42 Swift
-persistence tests are ported as JVM unit tests (store logic runs against an
-in-memory fake of the DAO interface), and an instrumented suite re-checks what
-the fake can only mirror — the generated SQL's sort orders and counts, the
-foreign-key cascade, and the epoch-millis converter — against a real Room
-database on-device.
+KSP ≥ 2.3 line, which works with AGP 9's built-in Kotlin. **42 JVM unit
+tests** cover the store logic (run against an in-memory fake of the DAO
+interface), and an instrumented suite re-checks what the fake can only
+mirror — the generated SQL's sort orders and counts, the foreign-key cascade,
+and the epoch-millis converter — against a real Room database on-device.
 
 ## What's in `:metawear-firmware`
 
-Nordic-DFU firmware updates (`com.mbientlab.metawear.firmware`) — a port of
-the Swift `MetaWearFirmware` package on top of the
+Nordic-DFU firmware updates (`com.mbientlab.metawear.firmware`) on top of the
 [Nordic Android DFU Library](https://github.com/NordicSemiconductor/Android-DFU-Library):
 
-| Kotlin | Ported from (Swift) |
-|---|---|
-| `FirmwareServer`, `FirmwareFetcher` (+ `HttpUrlConnectionFetcher`) | `MWFirmwareServer.swift` |
-| `FirmwareCatalog` (hand-rolled JSON, like the BoardState codec) | `MWFirmwareCatalog.swift` |
-| `FirmwareBuild` | `MWFirmwareBuild.swift` |
-| `FirmwareException` (sealed, Swift-parity messages) | `MWFirmwareError.swift` |
-| `BootloaderInterlock` (pure flash-plan decision table) | `BootloaderInterlock.swift` |
-| `MetaWearVersion.kt` (dotted-numeric compare) | `String+MetaWearVersion.swift` |
-| `DFUProgress`, `DfuSession` (Flow over Nordic broadcasts) | `DFUProgress.swift`, `DFUSession.swift` |
-| `MetaBootProbe` (one-shot GATT bootloader-version read) | `MetaBootProbe.swift` |
-| `FirmwareUpdate.kt` — `checkForFirmwareUpdate` / `updateFirmware` / `updateFirmwareToLatest` extensions | `MetaWearDevice+DFU.swift` |
+- `FirmwareServer`, `FirmwareFetcher` (+ `HttpUrlConnectionFetcher`) — HTTP
+  client for MbientLab's firmware release server.
+- `FirmwareCatalog` — parser for the release-catalog JSON (hand-rolled, like
+  the BoardState codec).
+- `FirmwareBuild` — value type describing one firmware artifact.
+- `FirmwareException` — sealed error taxonomy with stable messages.
+- `BootloaderInterlock` — pure flash-plan decision table.
+- `MetaWearVersion.kt` — dotted-numeric version compare.
+- `DFUProgress`, `DfuSession` — a cold Flow over the Nordic DFU library's
+  broadcasts.
+- `MetaBootProbe` — one-shot GATT bootloader-version read.
+- `FirmwareUpdate.kt` — `checkForFirmwareUpdate` / `updateFirmware` /
+  `updateFirmwareToLatest` extensions on `MetaWearDevice`.
 
 Usage: connect, then collect `device.updateFirmwareToLatest(context)` — a cold
 `Flow<DFUProgress>` that walks catalog fetch → download → `[0xFE, 0x02]`
@@ -180,16 +182,14 @@ Android specifics:
 - Firmware updates need the same `BLUETOOTH_CONNECT` runtime permission as
   the rest of the SDK.
 - The catalog JSON is parsed by a minimal hand-rolled parser (android.org.json
-  is stubbed out on the JVM unit-test classpath), keeping all 66 ported
-  firmware tests — version compare, catalog selection, server/mock-fetcher,
+  is stubbed out on the JVM unit-test classpath), keeping all **66 firmware
+  tests** — version compare, catalog selection, server/mock-fetcher,
   bootloader interlock — plain JVM unit tests. The `DfuSession` /
-  `MetaBootProbe` wrappers mirror the Swift package's stance: hardware-only,
-  no unit-test coverage.
+  `MetaBootProbe` wrappers are hardware-only and carry no unit-test coverage.
 
 ## What's in `:app`
 
-A Jetpack Compose port of the SwiftUI MetaWear app (`Apps/MetaWear` in the
-Swift repo), lean but feature-complete:
+A Jetpack Compose demo app, lean but feature-complete:
 
 - **Scan** — runtime BLE permission flow (`BLUETOOTH_SCAN`/`CONNECT` on 31+,
   fine location on 26–30), nearby devices from the SDK scanner's StateFlows
@@ -205,13 +205,13 @@ Swift repo), lean but feature-complete:
   dependency-free Canvas line chart, live readout, and true effective-Hz;
   polled sensors get a latest-value tile (fed by `device.poll` one-shot
   reads) plus the same chart; the quaternion output additionally renders a
-  live 3D orientation cube (Canvas wireframe with orthographic projection and
-  depth cueing — the dependency-free stand-in for the Swift RealityKit view).
-  Port of the Swift `Channel` hot-path pattern: samples ingest into plain
-  ring buffers on a background coroutine (full-resolution capture + 1-in-N
-  decimated display ring) and a ~33 ms ticker snapshots into Compose state —
-  nothing touches UI state at sensor rate. Stop archives each channel to
-  session history; buffers export as CSV.
+  live 3D orientation cube (a dependency-free Canvas wireframe with
+  orthographic projection and depth cueing).
+  The charting hot path keeps sensor-rate work off the UI: samples ingest
+  into plain ring buffers on a background coroutine (full-resolution capture
+  + 1-in-N decimated display ring) and a ~33 ms ticker snapshots into Compose
+  state — nothing touches UI state at sensor rate. Stop archives each channel
+  to session history; buffers export as CSV.
 - **Logging** — start/stop multi-sensor flash logging, elapsed clock, then a
   single raw download drain with progress, per-sensor typed decode, and
   persistence via `PersistenceStore`. Polled environmental sensors log
@@ -230,20 +230,15 @@ Swift repo), lean but feature-complete:
   TX power, and a confirm-dialog factory reset.
 - **Firmware** — catalog update check plus a Nordic-DFU update flow with
   state/progress UI.
-- **Demo mode** — `DemoBleTransport`, a protocol-level MetaMotion S emulator
-  (port of the Swift `DemoBLETransport`): module discovery, device-info /
-  battery / MAC / temperature / humidity / pressure / illuminance / log
-  reads, synthetic waveforms on every sensor including packed registers,
-  fusion outputs, altitude, and ambient light, and full logging round trips —
-  streamed, the polled timer/event chain, and recovery across a simulated
-  process restart. The scan screen offers it via a toggle (and suggests it
-  when Bluetooth is off), so the entire app runs on an emulator with no
-  hardware. The demo pipeline is exercised end-to-end by JVM unit tests
-  through the real `MetaWearDevice`.
-
-Deliberate cuts vs the Swift app: iCloud device sync and the
-peripheral-UUID/MAC reconciliation (Android's identifier *is* the MAC); the
-quaternion 3D view is a Canvas wireframe cube rather than a RealityKit scene.
+- **Demo mode** — `DemoBleTransport`, a protocol-level MetaMotion S emulator:
+  module discovery, device-info / battery / MAC / temperature / humidity /
+  pressure / illuminance / log reads, synthetic waveforms on every sensor
+  including packed registers, fusion outputs, altitude, and ambient light,
+  and full logging round trips — streamed, the polled timer/event chain, and
+  recovery across a simulated process restart. The scan screen offers it via
+  a toggle (and suggests it when Bluetooth is off), so the entire app runs on
+  an emulator with no hardware. The demo pipeline is exercised end-to-end by
+  JVM unit tests through the real `MetaWearDevice`.
 
 Install on a device or emulator:
 
@@ -255,11 +250,11 @@ JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
 ## Build & test
 
 ```bash
-./gradlew :metawear-protocol:test                    # ported parsing/command/transport tests (JVM)
+./gradlew :metawear-protocol:test                    # parsing/command/transport tests (JVM)
 ./gradlew :metawear-core:assembleDebug               # Android transport library (AAR)
-./gradlew :metawear-persistence:testDebugUnitTest    # ported persistence tests (JVM)
+./gradlew :metawear-persistence:testDebugUnitTest    # persistence tests (JVM)
 ./gradlew :metawear-persistence:connectedAndroidTest # Room round-trips (needs a device)
-./gradlew :metawear-firmware:testDebugUnitTest       # ported firmware tests (JVM)
+./gradlew :metawear-firmware:testDebugUnitTest       # firmware tests (JVM)
 ./gradlew :app:testDebugUnitTest                     # app logic + demo-emulator tests (JVM)
 ./gradlew :app:assembleDebug                         # Compose app APK
 ```
@@ -294,9 +289,6 @@ the lowest MAC for run-to-run stability.
 
 ## Design notes
 
-- **Kotlin idiom map** for the wider port: Swift `actor` → a single `Channel`-drained
-  worker coroutine (which also serializes Android GATT ops); `AsyncThrowingStream`
-  → cold `Flow` via `callbackFlow`; `CheckedContinuation` → `suspendCancellableCoroutine`.
 - **`ByteArray` equality** is reference-based in Kotlin — tests compare command
   bytes with `assertArrayEquals`, never `==`; value classes wrapping `ByteArray`
   (`ScanResult`, `MockBleTransport.Write`) override `equals` with `contentEquals`.
@@ -306,13 +298,14 @@ the lowest MAC for run-to-run stability.
   sealed events through the channel) rather than via `Channel.close(cause)`:
   closing a channel does not wake a receiver parked on a coroutines-test
   `backgroundScope` dispatcher, while `trySend` does. In-band markers also
-  reproduce `AsyncThrowingStream`'s buffered-then-fail delivery exactly.
+  guarantee that packets buffered before a failure are delivered first, then
+  the failure is thrown.
 - In tests, prefer `runCurrent()` (or suspending the test body) over
   `advanceUntilIdle()` when the thing you're waiting on runs in
   `backgroundScope` — `advanceUntilIdle` only drains foreground tasks.
-- Where the Swift router needs a task-group race plus tombstoned waiter IDs for
-  its read timeout, the Kotlin port uses `withTimeout` + `invokeOnCancellation`
-  (atomic with respect to resume), so the waiter map is simply pruned.
+- The protocol router's read timeout uses `withTimeout` +
+  `invokeOnCancellation` (atomic with respect to resume), so the waiter map is
+  simply pruned — no tombstoning needed to stay consistent under cancellation.
 - Expected-failure `async` blocks in tests catch inside the block
   (`async { runCatching { … } }`) — a failed `async` child cancels the test
   scope even if the `await` is wrapped.

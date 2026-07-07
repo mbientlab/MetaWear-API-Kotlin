@@ -39,7 +39,7 @@ class PersistenceDatabaseTest {
         database.close()
     }
 
-    // ---- Helpers (ports of the MWPersistenceStoreTests.swift fixtures) ----
+    // ---- Test fixtures ----
 
     private fun makeDeviceInfo(serial: String = "AA:BB:CC:DD:EE:FF") = DeviceInformation(
         manufacturer = "MbientLab Inc.",

@@ -4,7 +4,7 @@ import com.mbientlab.metawear.app.core.RingBuffer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** Port of `RingBufferTests.swift`. */
+/** Fixed-capacity ring buffer behavior. */
 class RingBufferTest {
 
     @Test

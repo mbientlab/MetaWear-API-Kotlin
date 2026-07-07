@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** Ported from MWModuleCommandTests.swift — "Gyroscope Commands" suite. */
+/** Gyroscope command byte-layout tests. */
 class GyroscopeCommandTest {
 
     private val sensor = GyroscopeBmi160(GyroscopeBmi160.Odr.HZ100, GyroscopeBmi160.Range.DPS2000)
@@ -70,7 +70,7 @@ class GyroscopeCommandTest {
     }
 }
 
-/** Ported from MWModuleCommandTests.swift — "Gyroscope BMI160 Data Handler" suite. */
+/** Gyroscope BMI160 data-handler tests. */
 class GyroscopeBmi160DataHandlerTest {
 
     // Reference vector: test_data_handler_bmi160.py at 500dps → (262.409, 499.497, -499.512)
@@ -136,7 +136,7 @@ class GyroscopeBmi160DataHandlerTest {
     }
 }
 
-/** Ported from MWModuleCommandTests.swift — "Gyroscope Type-Erased" suite. */
+/** Type-erased gyroscope API tests. */
 class GyroscopeTypeErasedTest {
 
     @Test fun make_bmi160_impl0_producesBmi160() {

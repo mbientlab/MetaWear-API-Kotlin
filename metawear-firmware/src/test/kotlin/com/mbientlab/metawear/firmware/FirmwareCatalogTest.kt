@@ -6,12 +6,12 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWFirmwareCatalogTests.swift — coverage for the JSON catalog
+// Coverage for the JSON catalog
 // parser and the build-selection logic on top of it. Uses inline JSON
 // fixtures mirroring the real `info2.json` shape so a future server-side
 // change is easy to spot.
 
-/** Port of the "MWFirmwareCatalog" suite. */
+/** Tests for [FirmwareCatalog]. */
 class FirmwareCatalogTest {
 
     companion object {

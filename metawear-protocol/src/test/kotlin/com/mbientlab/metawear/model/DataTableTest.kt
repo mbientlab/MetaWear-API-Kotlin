@@ -7,12 +7,11 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Ported from MWDataTableTests.swift — the `MWDataConvertible`,
- * `MWDataTable Factory`, and `MWDataTable CSV` suites.
+ * Data-table suites: DataConvertible conformances, table factory, and
+ * CSV rendering.
  *
- * Where the Swift tests use `Date()` (current wall clock) for samples whose
- * timestamp is irrelevant to the assertion, fixed instants are used instead —
- * assertions never depend on `Clock.System`.
+ * Samples whose timestamp is irrelevant to the assertion use fixed
+ * instants — assertions never depend on `Clock.System`.
  */
 class DataTableTest {
 

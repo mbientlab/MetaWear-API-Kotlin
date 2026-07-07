@@ -3,7 +3,7 @@ package com.mbientlab.metawear.transport
 import java.util.UUID
 
 /**
- * GATT service / characteristic UUIDs used by the SDK. Port of `MWUUIDs` (Swift).
+ * GATT service / characteristic UUIDs used by the SDK.
  *
  * 16-bit Bluetooth SIG identifiers (e.g. `0x2A26`) are expanded onto the
  * standard Bluetooth base UUID via [fromShort], matching how every platform

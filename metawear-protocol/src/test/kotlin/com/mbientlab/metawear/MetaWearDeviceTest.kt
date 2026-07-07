@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** Ported from MetaWearDeviceTests.swift — the Step 3 vertical-slice suites. */
+/** The Step 3 vertical-slice suites: connect, read, stream, and command paths end to end. */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class) // runCurrent
 class MetaWearDeviceTest {
 
@@ -264,7 +264,7 @@ class MetaWearDeviceTest {
         assertArrayEquals(bytes(0x03, 0x06, 0x02, 0x00), transport.writtenCommands[1])
     }
 
-    // ---- Generic read and poll (ported from MWGenericReadPollTests essence) ----
+    // ---- Generic read and poll ----
 
     /** Battery readable: read [0x11, 0x91] → [0x11, 0x91, charge, mV lo, mV hi]. */
     private class BatteryReadable : Pollable<BatteryState> {

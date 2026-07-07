@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 
 /**
  * A protocol-level MetaWear emulator for demos, emulator runs, and screenshots
- * — no hardware, no Bluetooth. Port of `DemoBLETransport.swift`.
+ * — no hardware, no Bluetooth.
  *
  * Behaves like a connected MetaMotion S on firmware 1.7.3: it answers module
  * discovery, Device Information reads, battery/MAC/log reads, streams
@@ -426,7 +426,7 @@ class DemoBleTransport(
     }
 
     private suspend fun performLogReadout(count: Long) {
-        // Generalised from the Swift original (accel-or-temperature): replays
+        // Replays
         // any 2-chunk cartesian logger pair (accel/gyro/mag) plus every
         // single-chunk environmental logger — temperature (Int16 °C × 8),
         // humidity (UInt32 % × 1024), pressure (UInt32 Pa × 256) — so both

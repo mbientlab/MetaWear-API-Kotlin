@@ -7,10 +7,10 @@ import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 import com.mbientlab.metawear.protocol.Readable
 
-// Port of MWDebug.swift — debug module (0xFE).
+// Debug module (0xFE).
 
 /**
- * Commands for the MetaWear debug module (0xFE). Port of `MWDebug` (Swift).
+ * Commands for the MetaWear debug module (0xFE).
  * These control board lifecycle: reset, DFU bootloader, and clean disconnect.
  */
 object Debug {
@@ -96,8 +96,8 @@ object Debug {
         override val readCommand: ByteArray = Packet.read(Module.DEBUG, 0x09)
 
         override fun parseSample(packet: ByteArray): OverflowState {
-            // Inline port of MWPacketParser.parseOverflowState — the shared
-            // PacketParser does not carry a debug-module decoder.
+            // Decoded inline — the shared PacketParser does not carry a
+            // debug-module decoder.
             if (packet.size < 5) {
                 throw MetaWearException.OperationFailed(
                     "Packet too short for OverflowState: ${packet.size} bytes",
@@ -132,8 +132,8 @@ object Debug {
         override val readCommand: ByteArray = Packet.read(Module.DEBUG, 0x0A)
 
         override fun parseSample(packet: ByteArray): List<Int> {
-            // Inline port of MWPacketParser.parseScheduleQueueUsage — just strip
-            // the 2-byte header and widen to unsigned values.
+            // Decoded inline — just strip the 2-byte header and widen to
+            // unsigned values.
             if (packet.size < 2) {
                 throw MetaWearException.OperationFailed(
                     "Packet too short for schedule queue usage: ${packet.size} bytes",

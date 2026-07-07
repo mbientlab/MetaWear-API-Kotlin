@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Ported from MWModuleCommandTests.swift — "Accelerometer Bosch — Orientation
- * Detection" suite. Reference: test_accelerometer_bosch.py (MbientLab C++
+ * Accelerometer Bosch orientation-detection tests.
+ * Reference: test_accelerometer_bosch.py (MbientLab C++
  * SDK), class TestOrientation.
  */
 class AccelerometerBoschOrientationTest {
@@ -71,8 +71,8 @@ class AccelerometerBoschOrientationTest {
 }
 
 /**
- * Ported from MWModuleCommandTests.swift — "Accelerometer Bosch — Any-Motion
- * Detection" suite. Reference: test_accelerometer_bosch.py, class TestAnyMotion.
+ * Accelerometer Bosch any-motion-detection tests.
+ * Reference: test_accelerometer_bosch.py, class TestAnyMotion.
  */
 class AccelerometerBoschAnyMotionTest {
 
@@ -137,8 +137,8 @@ class AccelerometerBoschAnyMotionTest {
 }
 
 /**
- * Ported from MWModuleCommandTests.swift — "Accelerometer Bosch — Tap
- * Detection" suite. Reference: test_accelerometer_bosch.py, class TestTapDetector.
+ * Accelerometer Bosch tap-detection tests.
+ * Reference: test_accelerometer_bosch.py, class TestTapDetector.
  */
 class AccelerometerBoschTapTest {
 
@@ -210,8 +210,7 @@ class AccelerometerBoschTapTest {
 }
 
 /**
- * Ported from MWAccelerometerBMI160Tests.swift — "BMI160 — Step Counter Setup",
- * "BMI160 — Step Counter Data", and "BMI160 — Step Detector" suites.
+ * BMI160 step-counter setup, step-counter data, and step-detector suites.
  * Reference: test_accelerometer_bmi160.py (MbientLab C++ SDK).
  */
 class AccelerometerBmi160StepsTest {
@@ -270,8 +269,8 @@ class AccelerometerBmi160StepsTest {
 }
 
 /**
- * Ported from MWModuleCommandTests.swift — "MWAccelerometer Generic API"
- * suite. Reference: test_accelerometer.py (MbientLab C++ SDK) —
+ * Generic (type-erased) accelerometer API tests.
+ * Reference: test_accelerometer.py (MbientLab C++ SDK) —
  * mbl_mw_acc_set_odr / mbl_mw_acc_set_range snap to the nearest supported value.
  */
 class AccelerometerTypeErasedTest {

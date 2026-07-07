@@ -9,7 +9,7 @@ import kotlinx.datetime.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** Port of `ChannelDecimationTests.swift`. */
+/** Channel display-buffer decimation behavior. */
 class ChannelDecimationTest {
 
     private fun sample(index: Int, hz: Double): AnyChartSample {

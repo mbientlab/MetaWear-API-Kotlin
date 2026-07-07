@@ -5,10 +5,9 @@ import kotlin.time.Duration.Companion.minutes
 import kotlinx.datetime.Instant
 
 /**
- * Advertisement-freshness gate for the nearby-devices list. Port of the pure
- * freshness rule the Swift `ScanView` applies: a device is shown only while
- * its last advertisement is younger than [WINDOW]; the boundary is exclusive
- * (exactly [WINDOW] old = stale) and a never-seen device is stale.
+ * Advertisement-freshness gate for the nearby-devices list: a device is shown
+ * only while its last advertisement is younger than [WINDOW]; the boundary is
+ * exclusive (exactly [WINDOW] old = stale) and a never-seen device is stale.
  */
 object DeviceFreshness {
 

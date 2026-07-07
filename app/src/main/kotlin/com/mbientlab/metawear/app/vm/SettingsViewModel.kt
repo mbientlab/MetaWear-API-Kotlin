@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Device settings: advertising name, advertising parameters, TX power, and
- * the factory-reset flow. Port of the Swift `DeviceSettingsView`'s VM surface.
+ * the factory-reset flow.
  */
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 

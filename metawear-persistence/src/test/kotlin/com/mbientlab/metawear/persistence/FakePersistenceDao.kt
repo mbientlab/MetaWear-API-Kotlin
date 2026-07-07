@@ -1,11 +1,11 @@
 package com.mbientlab.metawear.persistence
 
 /**
- * In-memory [PersistenceDao] that mirrors the SQL contracts of the generated
- * Room implementation (sort orders, sample counts, cascade deletes). It lets
- * the store tests run on a plain JVM — the Swift equivalent of an in-memory
- * `ModelContainer`. The generated Room implementation itself is exercised
- * against a real database in `src/androidTest`.
+ * In-memory fake [PersistenceDao] that mirrors the SQL contracts of the
+ * generated Room implementation (sort orders, sample counts, cascade deletes).
+ * It lets the store tests run on a plain JVM. The generated Room
+ * implementation itself is exercised against a real database in
+ * `src/androidTest`.
  */
 class FakePersistenceDao : PersistenceDao {
 

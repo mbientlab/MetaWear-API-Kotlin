@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-// Kotlin translation of the MetaWearDeviceTests.swift helpers.
+// Shared helpers for the device-level test suites.
 
 /** Modules the stub board reports present: accel, gyro, baro, magnetometer, fusion. */
 val DEFAULT_PRESENT_MODULES = setOf(0x03, 0x13, 0x12, 0x15, 0x19)
@@ -32,8 +32,8 @@ fun makeConnectableTransport(): MockBleTransport = MockBleTransport().apply {
 /**
  * Poll [MockBleTransport.writtenData] and answer each **new** command via
  * [reply] (return `null` to ignore). Index-based, so repeated identical
- * commands (e.g. a battery poll) each get a response — unlike the Swift
- * helper's responded-set, which deduplicates.
+ * commands (e.g. a battery poll) each get a response rather than being
+ * deduplicated by byte content.
  */
 fun CoroutineScope.autoReply(
     transport: MockBleTransport,

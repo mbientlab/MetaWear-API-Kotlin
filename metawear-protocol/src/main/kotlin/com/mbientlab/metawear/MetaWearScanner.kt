@@ -13,8 +13,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Scans for MetaWear peripherals and vends [MetaWearDevice] instances.
- * Port of the Swift `MetaWearScanner` (`@Observable @MainActor` class), with
- * observable dictionaries translated to [StateFlow] maps for Compose/ViewModel
+ * Discovery state is exposed as [StateFlow] maps for Compose/ViewModel
  * consumption.
  *
  * One scanner per app. The scan itself runs on [scanTransport]; each

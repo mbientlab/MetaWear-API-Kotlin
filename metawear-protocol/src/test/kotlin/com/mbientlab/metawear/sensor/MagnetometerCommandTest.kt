@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
-/** Ported from MWModuleCommandTests.swift — "Magnetometer Commands" suite. */
+/** Magnetometer command byte-layout tests. */
 class MagnetometerCommandTest {
 
     private val sensor = Magnetometer(Magnetometer.Preset.LOW_POWER)
@@ -98,7 +98,7 @@ class MagnetometerCommandTest {
     }
 }
 
-/** Ported from MWModuleCommandTests.swift — "Magnetometer Data Handler" suite. */
+/** Magnetometer data-handler tests. */
 class MagnetometerDataHandlerTest {
 
     // Reference from test_b_field_data: parse b'\x15\x05\x4e\xf0\x53\x0a\x75\x04'

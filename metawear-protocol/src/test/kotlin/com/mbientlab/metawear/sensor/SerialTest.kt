@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWSerialTests.swift.
+// Serial passthrough (I2C/SPI) suites.
 //
 // Reference vectors from:
 //   MetaWear-SDK-Cpp/src/metawear/peripheral/cpp/serialpassthrough.cpp

@@ -19,17 +19,17 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWLoggingTests.swift: startLogging commands, RawLogEntry
+// Logging coverage: startLogging commands, RawLogEntry
 // parsing, log chunk configuration, log sample decode, flushLogPage, and
 // clearLog. The download suites at the bottom cover the raw + typed
-// `downloadLogs` pipeline the Swift file exercises only against hardware.
+// `downloadLogs` pipeline, a surface otherwise only exercised against hardware.
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class LoggingTest {
 
     private val mac = "AA:BB:CC:DD:EE:FF"
 
-    /** Connect against the stub board (logging module absent, like the Swift helper). */
+    /** Connect against the stub board (logging module absent by default). */
     private suspend fun TestScope.connectedDevice(): Pair<MetaWearDevice, MockBleTransport> {
         val transport = makeConnectableTransport()
         val device = MetaWearDevice(mac, transport, backgroundScope)
@@ -71,9 +71,9 @@ class LoggingTest {
     /**
      * Reply to logger-subscribe commands (`[0x0B, 0x02, ...]`) with sequential
      * logger IDs. Firmware response shape: `[0x0B, 0x02, logger_id]` — a plain
-     * notification with bit-7 CLEAR, not a read response. (The Swift fixture
-     * once used `0x82` here, which only worked because the SDK was awaiting the
-     * wrong waiter type — both bugs cancelled out in unit tests but timed out
+     * notification with bit-7 CLEAR, not a read response. (A fixture that
+     * replies with `0x82` here can only pass if the SDK awaits the wrong
+     * waiter type — two bugs cancelling out in unit tests while timing out
      * against real hardware.)
      */
     private fun CoroutineScope.autoReplyLoggerSubscriptions(
@@ -157,9 +157,9 @@ class LoggingTest {
     /**
      * Regression test: the packed byte the SDK puts on the wire must match the
      * C++ encoding `((length - 1) << 5) | offset` (datasignal.cpp:162,
-     * logging.cpp:868). An earlier version of the Swift SDK had the bit-fields
-     * swapped, which produced wrong packing the firmware silently accepted but
-     * couldn't reassemble. Lock the correct shape in.
+     * logging.cpp:868). A subtle trap: swapping the bit-fields produces wrong
+     * packing the firmware silently accepts but cannot reassemble. Lock the
+     * correct shape in.
      */
     @Test
     fun `startLogging packed byte on wire matches cpp encoding`() = runTest {

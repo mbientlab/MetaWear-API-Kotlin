@@ -1,7 +1,6 @@
 package com.mbientlab.metawear.firmware
 
-// Port of BootloaderInterlock.swift — decides whether a firmware flash must
-// be preceded by bootloader flashes.
+// Decides whether a firmware flash must be preceded by bootloader flashes.
 //
 // Every catalog build declares the minimum bootloader it needs
 // (`required-bootloader` -> `FirmwareBuild.requiredBootloader`). Flashing an

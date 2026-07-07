@@ -14,9 +14,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Scanner logic tests. The Swift scanner is CoreBluetooth-bound and only
- * exercised in hardware tests; the Kotlin port decouples scan input behind
- * [FakeScanTransport], so the filtering/caching rules are unit-testable.
+ * Scanner logic tests. Scan input is decoupled behind
+ * [FakeScanTransport], so the filtering/caching rules are unit-testable
+ * without a real BLE stack.
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class) // runCurrent
 class MetaWearScannerTest {

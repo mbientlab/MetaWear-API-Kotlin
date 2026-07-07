@@ -4,14 +4,13 @@ import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 
 /**
- * One BLE advertisement normalized for the SDK scanner. Port of `ScanResult`
- * (Swift), with the peripheral identifier adapted for Android.
+ * One BLE advertisement normalized for the SDK scanner.
  */
 data class ScanResult(
     /**
      * Stable identifier for the advertising peripheral. On Android this is the
-     * device MAC address ("AA:BB:CC:DD:EE:FF"); CoreBluetooth's UUID identifier
-     * has no equivalent here, so the seam uses an opaque string.
+     * device MAC address ("AA:BB:CC:DD:EE:FF"); the seam uses an opaque string
+     * so other transports can supply whatever stable identifier they have.
      */
     val identifier: String,
     /** Advertised local name, if present in the packet. */
@@ -40,7 +39,7 @@ data class ScanResult(
     }
 }
 
-/** GATT write mode. Mirrors `CBCharacteristicWriteType`. */
+/** GATT write mode. */
 enum class WriteType {
     /** Acknowledged write — the peripheral confirms receipt. */
     WITH_RESPONSE,
@@ -50,7 +49,7 @@ enum class WriteType {
 }
 
 /**
- * Platform-agnostic BLE interface. Port of the Swift `BLETransport` protocol.
+ * Platform-agnostic BLE interface.
  *
  * The Nordic-backed Android implementation lives in `:metawear-core`; swap in
  * [MockBleTransport] for hardware-free unit tests. Implementations must

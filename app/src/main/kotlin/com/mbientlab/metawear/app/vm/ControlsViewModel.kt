@@ -15,9 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * LED + haptic controls. Port of `ControlsViewModel.swift` (the quick-read
- * tiles cover environmental sensors this app doesn't port; battery lives on
- * the device screen instead).
+ * LED + haptic controls. (Battery lives on
+ * the device screen instead.)
  */
 class ControlsViewModel(container: AppContainer) : ViewModel() {
 

@@ -6,11 +6,11 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWFirmwareErrorTests.swift — smoke coverage for
+// Smoke coverage for
 // FirmwareException. The values are simple but the messages ship in
 // user-facing UI, so it's worth catching copy regressions.
 
-/** Port of the "MWFirmwareError" suite. */
+/** Tests for [FirmwareException]. */
 class FirmwareExceptionTest {
 
     // ---- Message content (smoke) ----

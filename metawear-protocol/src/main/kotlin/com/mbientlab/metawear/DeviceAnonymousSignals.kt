@@ -6,7 +6,7 @@ import com.mbientlab.metawear.model.MetaWearException
 import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 
-// Port of the anonymous-signal reconstruction surface of MetaWearDevice.swift
+// The anonymous-signal reconstruction surface of the device
 // (`createAnonymousDataSignals()` + `readSensorScales()`). Implemented as
 // extension functions over the internal hooks in MetaWearDevice.kt, mirroring
 // how DeviceLogging.kt hosts the logging surface.

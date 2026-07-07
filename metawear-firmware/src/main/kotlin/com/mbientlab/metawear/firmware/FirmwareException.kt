@@ -2,16 +2,15 @@ package com.mbientlab.metawear.firmware
 
 import java.net.URI
 
-// Port of MWFirmwareError.swift — error taxonomy for the firmware-update
+// Error taxonomy for the firmware-update
 // pipeline. Covers three layers:
 //   • catalog/network    — HTTP fetch failures, malformed JSON, no matching build
 //   • orchestration      — bootloader handoff, rediscovery, state-machine misuse
 //   • DFU transfer       — errors propagated from the Nordic DFU library
 //
-// Swift's `enum MWFirmwareError: Error, Equatable` + `LocalizedError` maps to
-// a sealed exception hierarchy: data classes/objects give the same
-// payload-based equality, and the Swift `errorDescription` strings become the
-// exception `message` verbatim.
+// Sealed exception hierarchy: data classes/objects give payload-based
+// equality, and the exception `message` strings are stable API asserted
+// verbatim by tests.
 
 sealed class FirmwareException(message: String) : Exception(message) {
 

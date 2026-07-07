@@ -1,6 +1,6 @@
 package com.mbientlab.metawear.firmware
 
-// Port of MWFirmwareCatalog.swift — parser for the MbientLab firmware-catalog
+// Parser for the MbientLab firmware-catalog
 // JSON served at `https://mbientlab.com/releases/metawear/info2.json`.
 //
 // Catalog shape (4 levels of dictionary nesting, leaf values are short
@@ -36,7 +36,7 @@ package com.mbientlab.metawear.firmware
  * Typed alias for the parsed catalog. The inner-leaf values are
  * `Map<String, String>` — `filename`, `required-bootloader`,
  * `min-ios-version`. Kept stringly-typed because that's how the server emits
- * them. (Swift: `[String: [String: [String: [String: [String: String]]]]]`.)
+ * them.
  */
 internal typealias FirmwareCatalogJson =
     Map<String, Map<String, Map<String, Map<String, Map<String, String>>>>>
@@ -46,8 +46,8 @@ internal object FirmwareCatalog {
     /**
      * Parse the raw text returned by the catalog server into the typed JSON
      * map. Throws [FirmwareException.InvalidServerResponse] if the text
-     * doesn't deserialize or doesn't match the expected shape (Swift's
-     * `object as? JSON` deep-cast becomes an explicit shape validation).
+     * doesn't deserialize or doesn't match the expected shape (validated
+     * explicitly, level by level).
      */
     fun parse(text: String): FirmwareCatalogJson {
         val obj: Any? = try {
@@ -70,9 +70,9 @@ internal object FirmwareCatalog {
      * modelNumber, buildFlavor) tuple AND whose `min-ios-version` is ≤ the
      * current SDK version, sorted ascending by firmware revision.
      *
-     * The catalog key is literally named `min-ios-version` — MbientLab's
-     * server predates the Android port and the floor applies to any SDK
-     * consuming the catalog.
+     * The server's catalog key is literally named `min-ios-version` — it
+     * gates the minimum supported client SDK version, and the floor applies
+     * to any SDK consuming the catalog.
      *
      * @param json        The parsed catalog (from [parse]).
      * @param hardwareRev Hardware revision string from the connected device.

@@ -1,11 +1,10 @@
 package com.mbientlab.metawear.protocol
 
-// Core sensor interfaces. Port of MWActions.swift (MWSensor / MWStreamable /
-// MWLoggable / MWReadable / MWCommand / MWCommandSequence / MWPollable).
+// Core sensor interfaces: Sensor / Streamable / Loggable / Readable /
+// Command / CommandSequence / Pollable.
 //
-// Swift associated types become Kotlin generic type parameters. The sample type
-// is in `out` position (only ever produced, never consumed), so it is variance-
-// annotated `out S`.
+// The sample type is in `out` position (only ever produced, never consumed),
+// so it is variance-annotated `out S`.
 
 /** A sensor that produces typed samples from raw BLE notification bytes. */
 interface Sensor {

@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 import kotlinx.datetime.Instant
 
 /**
- * One persisted sensor sample. Port of the `MWSampleRecord` SwiftData `@Model`.
+ * One persisted sensor sample.
  *
  * All sensor value types are stored as up to four `Float` fields plus an
  * `accuracy` byte. This flat layout means a single entity handles
@@ -22,7 +22,7 @@ import kotlinx.datetime.Instant
             entity = SessionRecord::class,
             parentColumns = ["id"],
             childColumns = ["sessionId"],
-            // SwiftData `@Relationship(deleteRule: .cascade)` equivalent.
+            // Cascade delete: removing a session removes its samples.
             onDelete = ForeignKey.CASCADE,
         ),
     ],

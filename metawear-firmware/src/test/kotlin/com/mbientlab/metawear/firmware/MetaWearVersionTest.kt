@@ -4,11 +4,11 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from StringMetaWearVersionTests.swift — coverage for the
+// Coverage for the
 // dotted-numeric-with-padding version comparison used to sort firmware
 // revisions and gate `min-ios-version`.
 
-/** Port of the "String — MetaWear version comparison" suite. */
+/** Tests for the MetaWear version-comparison string helpers. */
 class MetaWearVersionTest {
 
     // ---- Equal-length numeric compare ----

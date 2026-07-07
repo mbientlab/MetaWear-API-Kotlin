@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Firmware check + DFU flow. Port of `FirmwareUpdateViewModel.swift`:
+ * Firmware check + DFU flow:
  * check the MbientLab catalog against the connected board, then stream
  * Nordic-DFU progress through the update. After a completed flash the board
  * reboots into app mode and this VM reconnects to refresh device info.

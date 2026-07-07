@@ -7,7 +7,7 @@ import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// Port of MWFirmwareServer.swift — HTTP client for MbientLab's firmware
+// HTTP client for MbientLab's firmware
 // catalog + downloads. Designed so the network layer is mockable — callers
 // (and tests) can supply any conforming FirmwareFetcher. The default
 // implementation wraps HttpURLConnection (no new HTTP dependency).
@@ -45,8 +45,8 @@ interface FirmwareFetcher {
 
 /**
  * Production [FirmwareFetcher] backed by [HttpURLConnection] on
- * [Dispatchers.IO]. Follows redirects; non-HTTP URLs (Swift: "non-HTTP
- * response") are rejected with [FirmwareException.InvalidServerResponse].
+ * [Dispatchers.IO]. Follows redirects; non-HTTP URLs are rejected with
+ * [FirmwareException.InvalidServerResponse] ("Non-HTTP response").
  */
 class HttpUrlConnectionFetcher(
     private val connectTimeoutMillis: Int = 15_000,
@@ -129,8 +129,8 @@ class FirmwareServer(
          * giving it a stable, correctly-extensioned filename. Nordic's DFU
          * initiator dispatches on the file extension, and fetcher temp files
          * end in ".tmp" — the artifact must be renamed before hand-off. On
-         * Android `java.io.tmpdir` is the app's cache directory, matching the
-         * Swift staging under `FileManager.temporaryDirectory`.
+         * Android `java.io.tmpdir` is the app's cache directory, so downloads
+         * are staged under the app cacheDir.
          */
         internal fun stageDownload(tempFile: File, filename: String): File {
             try {

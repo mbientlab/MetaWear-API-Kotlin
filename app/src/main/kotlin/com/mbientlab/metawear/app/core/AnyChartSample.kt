@@ -10,8 +10,8 @@ import kotlinx.datetime.Instant
 
 /**
  * Type-erased chart sample: up to four float channels plus a wall-clock time.
- * Port of `AnyChartSample.swift`. Every live-stream value type funnels through
- * this so the ring buffers, chart, and CSV export stay monomorphic.
+ * Every live-stream value type funnels through this so the ring buffers,
+ * chart, and CSV export stay monomorphic.
  */
 data class AnyChartSample(
     /** Monotonic identity for stable Compose keys. */

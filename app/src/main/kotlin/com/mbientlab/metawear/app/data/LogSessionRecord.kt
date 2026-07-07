@@ -11,9 +11,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.datetime.Instant
 
 /**
- * One sensor's on-device logging session, from start to downloaded. Port of
- * `LogSessionRecord.swift` (SwiftData `@Model` with sensorKind / configJSON /
- * statusRaw / polledHandlesJSON): pending sessions — including the
+ * One sensor's on-device logging session, from start to downloaded.
+ * Pending sessions — including the
  * board-allocated polled-logger handles — persist through
  * [LogSessionRegistry]'s prefs backing and are restored on relaunch. The
  * SDK's in-memory chunk registry is rebuilt from the board's trigger table
@@ -48,9 +47,9 @@ data class LogSessionRecord(
 }
 
 /**
- * Line-per-record, tab-separated persistence codec for [LogSessionRecord] —
- * the Kotlin analogue of the Swift record's configJSON / polledHandlesJSON
- * columns. Pure Kotlin so the round trip is unit-tested on the JVM.
+ * Line-per-record, tab-separated persistence codec for [LogSessionRecord],
+ * covering the sensor config and polled-logger handles. Pure Kotlin so the
+ * round trip is unit-tested on the JVM.
  */
 object LogSessionRecordCodec {
 
@@ -112,9 +111,9 @@ object LogSessionRecordCodec {
 
 /**
  * Registry of log-session records, shared across ViewModels. When backed by
- * [prefs] (production), every mutation persists so pending sessions survive
- * process death — mirroring the Swift app's SwiftData-stored records. Pass
- * `null` for a purely in-memory registry (tests).
+ * [prefs] (production), every mutation persists so a pending log session
+ * survives process death. Pass `null` for a purely in-memory registry
+ * (tests).
  */
 class LogSessionRegistry(private val prefs: SharedPreferences? = null) {
 

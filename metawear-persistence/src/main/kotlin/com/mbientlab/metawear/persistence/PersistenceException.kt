@@ -1,9 +1,8 @@
 package com.mbientlab.metawear.persistence
 
 /**
- * Errors thrown by [PersistenceStore]. Port of `MWPersistenceError` (Swift),
- * expressed in the same sealed-exception style as
- * `com.mbientlab.metawear.model.MetaWearException`.
+ * Errors thrown by [PersistenceStore], expressed in the same sealed-exception
+ * style as `com.mbientlab.metawear.model.MetaWearException`.
  */
 sealed class PersistenceException(message: String) : Exception(message) {
 

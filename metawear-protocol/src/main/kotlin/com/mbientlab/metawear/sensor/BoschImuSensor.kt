@@ -6,7 +6,7 @@ import com.mbientlab.metawear.protocol.Packet
 
 /**
  * Shared base for the four Bosch IMU sensors (BMI160 / BMI270 accelerometer and
- * gyroscope). Port of `MWBoschIMUSensor` (Swift).
+ * gyroscope).
  *
  * They share an identical register pattern at the command level:
  *

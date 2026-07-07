@@ -5,13 +5,13 @@ import com.mbientlab.metawear.protocol.Command
 import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 
-// Port of MWLED.swift — LED module (0x02) patterns and commands.
+// LED module (0x02) patterns and commands.
 //
 // Register opcodes follow the C++ SDK header `Led.h` (the firmware
 // `LedRegister` enum): PLAY = 0x01, STOP = 0x02, SETPATTERN = 0x03.
 
 /**
- * One color channel's LED pulse shape. Port of `MWLEDPattern` (Swift).
+ * One color channel's LED pulse shape.
  *
  * The LED follows a four-phase envelope per pulse:
  * 1. Ramp from [lowIntensity] to [highIntensity] over [riseTime] ms.
@@ -75,7 +75,7 @@ data class LedPattern(
     }
 }
 
-/** Namespace for MetaWear LED (module 0x02) commands. Port of `MWLED` (Swift). */
+/** Namespace for MetaWear LED (module 0x02) commands. */
 object Led {
 
     /** PLAY register: `[mod, 0x01, 0x01]` plays; `0x02` autoplay; `0x00` pauses. */

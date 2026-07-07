@@ -20,16 +20,16 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Byte-identical stand-ins for LED commands (the LED module is ported in a
+// Byte-identical stand-ins for LED commands (the LED module lives in a
 // separate file); the macro machinery only ever sees their commandData bytes.
 private class MacroStubCommand(private val data: ByteArray) : Command {
     override val commandData: ByteArray get() = data
 }
 
-/** `MWLED.Play()` → `[0x02, 0x01, 0x01]`. */
+/** LED play → `[0x02, 0x01, 0x01]`. */
 private fun playCommand(): Command = MacroStubCommand(bytes(0x02, 0x01, 0x01))
 
-/** `MWLED.Stop(clearPattern: false)` → `[0x02, 0x02, 0x00]`. */
+/** LED stop, keeping the pattern → `[0x02, 0x02, 0x00]`. */
 private fun stopCommand(): Command = MacroStubCommand(bytes(0x02, 0x02, 0x00))
 
 /**
@@ -40,7 +40,7 @@ private fun longCommand(): Command = MacroStubCommand(
     bytes(0x02, 0x03, 0x01, 0x02, 0x1F, 0x00, 0x64, 0x00, 0xC8, 0x00, 0x64, 0x00, 0x20, 0x03, 0xFF),
 )
 
-/** Ported from MWMacroTests.swift. */
+/** Macro-module tests: record, end, execute, and erase command flows. */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class) // runCurrent
 class MacroTest {
 

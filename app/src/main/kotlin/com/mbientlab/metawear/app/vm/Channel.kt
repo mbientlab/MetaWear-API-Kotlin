@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * One charted sensor stream in a live session. Port of `Channel.swift`.
+ * One charted sensor stream in a live session.
  *
  * Separates high-frequency sample ingestion from observed UI state: raw
  * samples accumulate in plain (non-state) ring buffers via [ingest] on the

@@ -11,17 +11,16 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from the debug-module suites of MWDebugTemperatureTests.swift
-// (temperature is ported separately). Reference vectors from
-// MetaWear-SDK-Cpp/test/test_debug.py.
+// Debug-module suites (temperature is covered separately). Reference
+// vectors from MetaWear-SDK-Cpp/test/test_debug.py.
 //
-// The MWFactoryResetTests.swift suite is NOT ported here: its command
+// Device-level factory-reset coverage does NOT live here: those command
 // assertions all run through `MetaWearDevice.factoryReset()` (and mostly
-// `startLogging`), neither of which exists in the Kotlin port yet. The two
-// debug commands it pins — reset-after-GC `[0xFE, 0x05]` and reset
+// `startLogging`) and are exercised at the device level. The two
+// debug commands they pin — reset-after-GC `[0xFE, 0x05]` and reset
 // `[0xFE, 0x01]` — are covered below.
 
-/** Ported from the "Debug Commands" suite. */
+/** Debug command byte-layout tests. */
 class DebugCommandTest {
 
     // ---- Simple lifecycle commands ----
@@ -100,7 +99,7 @@ class DebugCommandTest {
 }
 
 /**
- * Ported from the "Debug Packet Parsing" suite.
+ * Debug packet-parsing tests.
  * Reference vectors from MetaWear-SDK-Cpp/test/test_debug.py.
  */
 class DebugParsingTest {

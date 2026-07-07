@@ -14,8 +14,7 @@ import org.junit.jupiter.api.Test
 
 /**
  * Semantics of the mock transport seam — the contract the protocol layer
- * (Step 3) and downstream app tests rely on. Mirrors how the Swift suites use
- * `MockBLETransport`.
+ * (Step 3) and downstream app tests rely on.
  */
 class MockBleTransportTest {
 

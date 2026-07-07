@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** Ported from MWTimerTests.swift. */
+/** Timer-module tests: create, start, stop, and remove command flows. */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class) // runCurrent
 class TimerTest {
 

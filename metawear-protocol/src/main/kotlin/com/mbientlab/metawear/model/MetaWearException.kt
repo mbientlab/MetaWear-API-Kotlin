@@ -1,12 +1,12 @@
 package com.mbientlab.metawear.model
 
 /**
- * Errors raised by the MetaWear SDK. Port of `MWError` (Swift), expressed as a
- * sealed exception hierarchy so call sites can `catch` by type and the SDK
- * throws a single family rather than mixing platform error types.
+ * Errors raised by the MetaWear SDK, expressed as a sealed exception
+ * hierarchy so call sites can `catch` by type and the SDK throws a single
+ * family rather than mixing platform error types.
  *
- * The message strings match the Swift `errorDescription` values verbatim so
- * any tests that assert on the user-visible message keep parity.
+ * The message strings are stable API — tests assert on the user-visible
+ * text verbatim, so do not reword them.
  */
 sealed class MetaWearException(message: String) : Exception(message) {
 

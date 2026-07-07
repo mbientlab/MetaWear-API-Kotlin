@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWBoardStateTests.swift.
+// Board-state tests.
 //
 // Mirrors MetaWear-SDK-Cpp/test/test_metawearboard.py:
 //   TestMetaWearBoard.test_module_info       — module.extra byte preservation
@@ -23,11 +23,11 @@ import org.junit.jupiter.api.Test
 //   TestMetaWearBoardSerialize.test_serialize_motion_r (and deserialize)
 //                                            — round-trip of post-init board state
 //
-// The binary blob format is intentionally NOT ported: it's tied to C++ struct
-// layout and never was a stable on-disk format. Instead we verify a JSON
-// round-trip, which is what this SDK exposes. (Swift round-trips MWModuleInfo
-// through Codable directly; ModuleInfo here has no standalone codec, so the
-// equivalent test round-trips it through a containing BoardState.)
+// The C++ binary blob format is intentionally NOT reproduced: it's tied to
+// C++ struct layout and never was a stable on-disk format. Instead we verify
+// a JSON round-trip, which is what this SDK exposes. (ModuleInfo has no
+// standalone codec, so the test round-trips it through a containing
+// BoardState.)
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class BoardStateTest {

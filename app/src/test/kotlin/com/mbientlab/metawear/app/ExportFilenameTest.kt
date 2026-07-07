@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** Port of `ExportFilenameTests.swift`. */
+/** Export-filename sanitization and formatting. */
 class ExportFilenameTest {
 
     // 2024-12-25T14:30:45Z

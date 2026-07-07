@@ -4,13 +4,12 @@ plugins {
     alias(libs.plugins.android.library)
 }
 
-// Nordic-DFU firmware updates: port of the Swift MetaWearFirmware package.
+// Nordic-DFU firmware updates for MetaWear boards.
 //
-//   MWFirmwareServer / MWFirmwareCatalog / MWFirmwareBuild → FirmwareServer / …
-//   MWFirmwareError                                        → FirmwareException
-//   DFUSession (iOS NordicDFU delegate wrapper)            → DfuSession (Android
-//                                                            DFU broadcast wrapper)
-//   MetaWearDevice+DFU extension                           → FirmwareUpdate.kt
+//   FirmwareServer / FirmwareCatalog / FirmwareBuild — catalog client + models
+//   FirmwareException                                — error taxonomy
+//   DfuSession                                       — Nordic DFU broadcast wrapper
+//   FirmwareUpdate.kt                                — public MetaWearDevice DFU API
 //
 // JSON: the firmware catalog (info2.json) is parsed by a hand-rolled minimal
 // recursive-descent parser in FirmwareCatalog.kt — the same approach as

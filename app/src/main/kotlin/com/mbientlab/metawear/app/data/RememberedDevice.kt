@@ -6,10 +6,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * A board the user connected to before. Lean port of `RememberedDevice.swift`:
- * Android identifies peripherals by MAC directly, so the Swift app's
- * peripheral-UUID/MAC reconciliation and CloudKit dedupe sweeps have no
- * equivalent here — MAC is the primary key, full stop.
+ * A board the user connected to before. Android identifies peripherals by
+ * MAC directly, so no peripheral-UUID reconciliation or dedupe sweeps are
+ * needed — MAC is the primary key, full stop.
  */
 data class RememberedDevice(
     /** Board MAC address — the identifier used across the whole SDK. */

@@ -11,9 +11,8 @@ import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 
-// Port of MWSensorFusion.swift — the on-board Bosch sensor-fusion module
-// (module 0x19). Calibration types and commands live in
-// SensorFusionCalibration.kt.
+// The on-board Bosch sensor-fusion module (module 0x19). Calibration types
+// and commands live in SensorFusionCalibration.kt.
 
 // ---- Sensor fusion mode ----
 
@@ -356,8 +355,7 @@ private fun fusionStopCommands(mode: SensorFusionMode): List<ByteArray> =
 //   3 = QUATERNION, 4 = EULER_ANGLES, 5 = GRAVITY, 6 = LINEAR_ACC
 
 /**
- * Shared base for the seven sensor-fusion output signals. Port of the common
- * body of the `MWSensorFusion*` structs (Swift).
+ * Shared base for the seven sensor-fusion output signals.
  *
  * All fusion outputs share one on-board engine, so they share the same
  * mode/range config and the same underlying acc/gyro/mag lifecycle commands;

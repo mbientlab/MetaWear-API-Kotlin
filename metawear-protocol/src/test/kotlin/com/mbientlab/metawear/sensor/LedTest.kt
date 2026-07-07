@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test
 /** Unsigned view of one wire byte. */
 private fun ByteArray.u(index: Int): Int = this[index].toInt() and 0xFF
 
-/** Ported from MWLEDTests.swift — LED command byte layouts and preset vectors. */
+/** LED command byte layouts and preset vectors. */
 class LedTest {
 
     // ---- SetPattern command ----
@@ -127,7 +127,7 @@ class LedTest {
         assertEquals(500, p.highTime)
         assertEquals(0, p.fallTime)
         assertEquals(1000, p.pulseDuration)
-        assertEquals(0xFF, p.repeatCount) // 0xFF = repeat indefinitely (MbientLab Swift SDK convention)
+        assertEquals(0xFF, p.repeatCount) // 0xFF = repeat indefinitely (MbientLab SDK convention)
     }
 
     @Test fun blinkPreset_exactValues() {

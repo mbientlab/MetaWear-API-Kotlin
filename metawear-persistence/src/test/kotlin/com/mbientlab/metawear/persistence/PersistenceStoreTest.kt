@@ -12,12 +12,10 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWPersistenceStoreTests.swift. The Swift tests run the store
-// against an in-memory SwiftData container; here the store's logic runs
-// against FakePersistenceDao on the JVM, and the generated Room DAO is
-// exercised on-device by src/androidTest.
+// The store's logic runs against the in-memory FakePersistenceDao on the JVM;
+// the generated Room DAO is exercised on-device by src/androidTest.
 
-/** Port of the "MWPersistenceStore — save and fetch" suite. */
+/** Save and fetch. */
 class PersistenceStoreSaveFetchTest {
 
     @Test
@@ -153,7 +151,7 @@ class PersistenceStoreSaveFetchTest {
     }
 }
 
-/** Port of the "MWPersistenceStore — sample round-trips" suite. */
+/** Sample round-trips. */
 class PersistenceStoreRoundTripTest {
 
     @Test
@@ -337,7 +335,7 @@ class PersistenceStoreRoundTripTest {
     }
 }
 
-/** Port of the "MWPersistenceStore — delete" suite. */
+/** Delete. */
 class PersistenceStoreDeleteTest {
 
     @Test

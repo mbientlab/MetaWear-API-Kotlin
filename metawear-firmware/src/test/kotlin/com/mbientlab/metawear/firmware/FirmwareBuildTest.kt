@@ -8,12 +8,12 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWFirmwareBuildTests.swift — coverage for FirmwareBuild URL
+// Coverage for FirmwareBuild URL
 // composition and equality. The catalog constructor composes a CDN URL from
 // the four catalog keys + filename; the custom-URL constructor accepts an
 // off-CDN URL as-is.
 
-/** Port of the "MWFirmwareBuild" suite. */
+/** Tests for [FirmwareBuild]. */
 class FirmwareBuildTest {
 
     // ---- CDN URL composition ----

@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWGenericReadPollTests.swift — the readable-specific pieces not
+// Generic read/poll coverage — the readable-specific pieces not
 // already covered by MetaWearDeviceTest's battery read/poll suite: humidity,
 // log length, and MAC address reads plus humidity polling.
 
@@ -22,7 +22,7 @@ class GenericReadPollTest {
 
     private val mac = "AA:BB:CC:DD:EE:FF"
 
-    /** Present modules per the Swift fixture: IMU set + logging, settings, humidity. */
+    /** Modules the stub board reports present: IMU set + logging, settings, humidity. */
     private val presentModules = setOf(0x03, 0x13, 0x12, 0x15, 0x19, 0x0B, 0x11, 0x16)
 
     private suspend fun TestScope.connectedDevice(): Pair<MetaWearDevice, MockBleTransport> {

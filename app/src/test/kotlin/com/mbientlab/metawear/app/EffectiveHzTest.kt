@@ -6,7 +6,7 @@ import kotlinx.datetime.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** Port of the effective-Hz math in `StreamSessionViewModel.swift`. */
+/** Windowed effective-Hz estimation math. */
 class EffectiveHzTest {
 
     private val t0 = Instant.fromEpochMilliseconds(0)

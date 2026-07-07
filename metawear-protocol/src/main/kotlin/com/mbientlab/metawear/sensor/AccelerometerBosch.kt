@@ -11,11 +11,11 @@ import com.mbientlab.metawear.protocol.PacketParser
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-// Port of the non-core parts of MWAccelerometer.swift: the Bosch-specific
-// gesture detection namespace (`MWAccelerometerBosch`), the BMI160 step
-// counter / detector (`MWAccelerometerBMI160Steps`), and the type-erased
-// accelerometer (`MWAccelerometer`). The core AccelerometerBmi160 /
-// AccelerometerBmi270 classes live in Accelerometer.kt.
+// The non-core accelerometer surface: the Bosch-specific gesture-detection
+// namespace (`AccelerometerBosch`), the BMI160 step counter / detector
+// (`AccelerometerBmi160Steps`), and the type-erased accelerometer
+// (`Accelerometer`). The core AccelerometerBmi160 / AccelerometerBmi270
+// classes live in Accelerometer.kt.
 //
 // Accelerometer register opcodes used here (module 0x03), following the C++
 // SDK headers (`AccelerometerBosch.h`, `AccelerometerBmi160Register.h`):
@@ -35,7 +35,7 @@ import kotlin.math.roundToInt
 
 /**
  * Orientation detection, any-motion detection, and tap detection for Bosch
- * accelerometers (registers 0x09–0x11). Port of `MWAccelerometerBosch` (Swift).
+ * accelerometers (registers 0x09–0x11).
  */
 object AccelerometerBosch {
 
@@ -70,8 +70,8 @@ object AccelerometerBosch {
      *
      * Orientation detection is BMI160-specific — the BMI270 has no equivalent
      * feature. Constructing this command with [ChipVariant.BMI270] throws
-     * [MetaWearException.OperationFailed] with the same diagnostic the legacy
-     * Combine SDK reported when this stream was attempted on the wrong chip.
+     * [MetaWearException.OperationFailed] so the wrong-chip mistake fails fast
+     * instead of producing a silent stream.
      */
     class EnableOrientation(chip: ChipVariant) : Command {
         init {
@@ -263,8 +263,7 @@ object AccelerometerBosch {
 }
 
 /**
- * On-chip step counter and step detector commands for the BMI160 IMU. Port of
- * `MWAccelerometerBMI160Steps` (Swift).
+ * On-chip step counter and step detector commands for the BMI160 IMU.
  *
  * The step counter accumulates total steps in firmware (readable on demand);
  * the step detector fires an interrupt for each step as it occurs. Both share
@@ -365,9 +364,9 @@ object AccelerometerBmi160Steps {
 
 /**
  * Type-erased accelerometer that wraps whichever Bosch IMU variant the
- * connected MetaWear actually has. Port of the `MWAccelerometer` enum (Swift).
- * Use this when the chip is determined at runtime (typically from the
- * module-info handshake) rather than known statically.
+ * connected MetaWear actually has. Use this when the chip is determined at
+ * runtime (typically from the module-info handshake) rather than known
+ * statically.
  *
  * Implements [Loggable], forwarding `parseSample`, `configureCommands`,
  * `enableCommand`, etc. to the underlying chip-specific implementation. This

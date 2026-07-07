@@ -6,14 +6,14 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
-// Ported from MWAnonymousSignalTests.swift — the pure (no-I/O) scheme suites:
+// The pure (no-I/O) anonymous-signal scheme suites:
 // root identifiers, processor segments, and full-chain composition. The
 // device-level suites (queryActiveProcessors + the test_anonymous_signal.py
 // port) live in DeviceAnonymousSignalsTest.kt.
 
 class AnonymousSignalTest {
 
-    // ---- Root identifiers (Swift: SchemeRootIdentifierTests) ----
+    // ---- Root identifiers ----
 
     @Test
     fun `acceleration packed XYZ`() {
@@ -75,7 +75,7 @@ class AnonymousSignalTest {
         assertNull(s)
     }
 
-    // ---- Processor segments (Swift: SchemeProcessorSegmentTests) ----
+    // ---- Processor segments ----
 
     @Test
     fun `rms simple`() {
@@ -143,7 +143,7 @@ class AnonymousSignalTest {
         assertNull(s)
     }
 
-    // ---- Full chain composition (Swift: SchemeCompositionTests) ----
+    // ---- Full chain composition ----
 
     /**
      * Mirrors TestActivity signal[0]:

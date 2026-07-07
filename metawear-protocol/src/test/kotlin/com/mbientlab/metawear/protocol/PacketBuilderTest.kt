@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** Ported from MWModuleCommandTests.swift — PacketBuilderTests suite. */
+/** Packet-builder byte-layout tests. */
 class PacketBuilderTest {
 
     @Test fun commandPacket() =

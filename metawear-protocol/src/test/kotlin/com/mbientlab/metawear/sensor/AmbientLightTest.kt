@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
-// Ported from MWAmbientLightTests.swift — Ambient Light (LTR329) Python-vector
+// Ambient Light (LTR329) Python-vector
 // byte-layout tests. Expected bytes verified against
 // MetaWear-SDK-Cpp/test/test_ambientlight_ltr329.py.
 

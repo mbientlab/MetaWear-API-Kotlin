@@ -18,8 +18,8 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 
-// Port of MetaBootProbe.swift — reads the bootloader version from a MetaWear
-// that has already rebooted into MetaBoot (bootloader) mode.
+// Reads the bootloader version from a MetaWear that has already rebooted
+// into MetaBoot (bootloader) mode.
 //
 // In MetaBoot mode the standard Device Information Service's Firmware
 // Revision characteristic (0x2A26) reports the BOOTLOADER version rather than
@@ -30,11 +30,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 //
 // This is a deliberately tiny, single-shot BluetoothGatt client: the core
 // SDK's transport can't be reused because its connect sequence requires the
-// MetaWear command service, which MetaBoot doesn't advertise. Where the Swift
-// probe bridges CBCentralManagerDelegate into a CheckedContinuation behind a
-// lock, this bridges BluetoothGattCallback into suspendCancellableCoroutine
-// with the one-shot guarantee enforced by an AtomicBoolean. Like DfuSession,
-// it has no unit-test coverage — it can only be exercised on real hardware.
+// MetaWear command service, which MetaBoot doesn't advertise. The probe
+// bridges BluetoothGattCallback into suspendCancellableCoroutine with the
+// one-shot guarantee enforced by an AtomicBoolean. Like DfuSession, it has
+// no unit-test coverage — it can only be exercised on real hardware.
 
 internal object MetaBootProbe {
 

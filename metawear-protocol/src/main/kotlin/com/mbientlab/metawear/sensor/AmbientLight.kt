@@ -7,7 +7,7 @@ import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 
-// Ambient Light (LTR329). Port of MWAmbientLight.swift; mirrors C++
+// Ambient Light (LTR329). Mirrors C++
 // `ambientlight_ltr329.{h,cpp}`. The ambient-light module (0x14) is present on
 // MetaWear RPro / MotionR boards, wrapping a Lite-On LTR329ALS sensor.
 //
@@ -26,7 +26,6 @@ import com.mbientlab.metawear.protocol.PacketParser
 
 /**
  * Streams illuminance from the LTR329 ambient-light sensor (module 0x14).
- * Port of `MWAmbientLight` (Swift).
  *
  * Samples are raw illuminance values (milli-lux, unsigned 32-bit as `Long`);
  * use [AmbientLight.lux] to convert to lux.
@@ -140,8 +139,7 @@ class AmbientLight(
 /**
  * One-shot command that writes an [AmbientLight] configuration (gain,
  * integration time, measurement rate) without starting / stopping the sensor.
- * Port of `MWAmbientLightWriteConfig` (Swift); mirrors C++
- * `mbl_mw_als_ltr329_write_config`.
+ * Mirrors C++ `mbl_mw_als_ltr329_write_config`.
  */
 class AmbientLightWriteConfig(val config: AmbientLight) : Command {
     override val commandData: ByteArray

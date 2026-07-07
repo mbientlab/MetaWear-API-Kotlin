@@ -25,7 +25,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented port of the Swift `LoggingTests` essentials — the on-device
+ * Instrumented logging smoke tests against real hardware — the on-device
  * log → flash → download round trip on the BMI270 accelerometer (MetaMotion S
  * focus), plus log-length and logger-registry maintenance.
  *
@@ -65,8 +65,8 @@ class LoggingHardwareTest {
             val entries = device.downloadLogs(accel).last().data
             assertTrue("expected > 50 logged samples in ~5 s at 50 Hz, got ${entries.size}", entries.size > 50)
 
-            // Board at rest → last sample's magnitude ≈ 1 g (Swift allows ±0.5 g
-            // for flash quantization and bench vibration).
+            // Board at rest → last sample's magnitude ≈ 1 g; ±0.5 g tolerance
+            // covers flash quantization and bench vibration.
             val v = entries.last().value
             val magnitude = sqrt((v.x * v.x + v.y * v.y + v.z * v.z).toDouble())
             assertTrue(

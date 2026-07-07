@@ -14,8 +14,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented port of the Swift `GyroscopeBMI270Tests` (Bmi270GyroscopeDataTests
- * + Bmi270PackedGyroDataTests) — BMI270 rotation streaming, unpacked and packed.
+ * Instrumented BMI270 rotation-streaming smoke tests against real hardware,
+ * unpacked and packed.
  *
  * Needs a MetaMotion S (BMI270, gyro implementation 1) in range; self-skips
  * otherwise. Timeouts are real wall-clock time (`runBlocking` via
@@ -46,8 +46,7 @@ class GyroscopeBmi270HardwareTest {
             val stream = device.startStream(gyro, usePacked = false)
             assertEquals(DeviceState.Streaming, device.state.value)
 
-            // 50 Hz for ~2 s ≈ 100 samples; > 50 tolerates connection ramp-up
-            // (Swift gyroscope_bmi270_receivesData asserts the same bound).
+            // 50 Hz for ~2 s ≈ 100 samples; > 50 tolerates connection ramp-up.
             val samples = collectStreamFor(stream, millis = 2_000)
             device.stopStreaming(gyro)
 
@@ -72,8 +71,8 @@ class GyroscopeBmi270HardwareTest {
             val samples = collectStreamFor(stream, millis = 2_000)
             device.stopStreaming(gyro)
 
-            // 100 Hz × 2 s ≈ 200 samples (3 per packed BLE packet); Swift
-            // subscribe_packed asserts > 120.
+            // 100 Hz × 2 s ≈ 200 samples (3 per packed BLE packet); > 120
+            // tolerates connection ramp-up.
             assertTrue(
                 "expected > 120 packed rotation samples in ~2 s at 100 Hz, got ${samples.size}",
                 samples.size > 120,

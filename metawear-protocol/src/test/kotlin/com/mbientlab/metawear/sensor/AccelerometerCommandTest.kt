@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** Ported from MWModuleCommandTests.swift — accelerometer command + data-handler vectors. */
+/** Accelerometer command + data-handler byte vectors. */
 class AccelerometerBmi160CommandTest {
 
     private val sensor = AccelerometerBmi160(AccelerometerBmi160.Odr.HZ100, AccelerometerBmi160.Range.G2)

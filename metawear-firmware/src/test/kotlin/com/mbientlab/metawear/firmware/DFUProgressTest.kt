@@ -4,11 +4,11 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Test
 
-// Ported from DFUProgressTests.swift — coverage for the DFUProgress value
+// Coverage for the DFUProgress value
 // type. It's a plain data class with defaults, but the defaults define what
 // observers see during non-upload phases, so they're worth pinning.
 
-/** Port of the "DFUProgress" suite. */
+/** Tests for [DFUProgress]. */
 class DFUProgressTest {
 
     // ---- Defaults ----

@@ -6,7 +6,7 @@ import com.mbientlab.metawear.protocol.Command
 import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 
-// Port of MWSerial.swift — serial passthrough module (0x0D).
+// Serial passthrough module (0x0D).
 //
 // Mirrors C++ `serialpassthrough.cpp` (declared across `i2c.h` + `spi.h`).
 // The module id is 0x0D (`MBL_MW_MODULE_I2C` — shared I2C/SPI passthrough).

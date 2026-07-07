@@ -77,7 +77,7 @@ class DemoBleTransportTest {
     }
 
     @Test
-    fun `battery and MAC reads answer like the Swift demo`() = withDemoDevice { device ->
+    fun `battery and MAC reads answer like the demo device`() = withDemoDevice { device ->
         device.connect()
 
         val battery = device.read(Settings.ReadBatteryState()).value

@@ -8,7 +8,7 @@ import com.mbientlab.metawear.protocol.PacketParser
 import com.mbientlab.metawear.protocol.Pollable
 import com.mbientlab.metawear.protocol.Streamable
 
-// Barometer (BMP280 / BME280). Port of MWBarometer.swift; mirrors C++
+// Barometer (BMP280 / BME280). Mirrors C++
 // `barometer_bosch.{h,cpp}`. Both chips share the same register map and
 // configuration encoding — they differ only in the physical meaning of
 // standby indices 6 and 7:
@@ -26,7 +26,7 @@ import com.mbientlab.metawear.protocol.Streamable
 
 /**
  * Streams atmospheric pressure (Pascals) from the BMP280 or BME280 barometer
- * (module 0x12). Port of `MWBarometer` (Swift).
+ * (module 0x12).
  *
  * Use the BMP280 constructor (with [BmpStandbyTime]) for motion boards and the
  * BME280 constructor (with [BmeStandbyTime]) for environmental boards.
@@ -124,8 +124,7 @@ class Barometer private constructor(
 }
 
 /**
- * Streams altitude (meters) from the BMP280 / BME280 barometer. Port of
- * `MWAltimeter` (Swift).
+ * Streams altitude (meters) from the BMP280 / BME280 barometer.
  *
  * Backed by the same hardware as [Barometer] — the firmware computes altitude
  * from pressure and exposes it on register 0x02. Configuration is supplied via
@@ -149,8 +148,7 @@ class Altimeter(
 }
 
 /**
- * One-shot pressure read from the BMP280 / BME280 barometer. Port of
- * `MWBarometerPressureRead` (Swift); mirrors C++
+ * One-shot pressure read from the BMP280 / BME280 barometer. Mirrors C++
  * `mbl_mw_baro_bosch_get_pressure_read_data_signal`.
  *
  * Same register as the streaming pressure signal (0x01), but with the read bit

@@ -11,12 +11,11 @@ import kotlinx.coroutines.flow.flow
 
 /**
  * In-memory BLE transport for unit tests. No hardware required.
- * Port of `MockBLETransport` (Swift actor).
  *
  * Inject board responses with [inject]; inspect commands the SDK sent via
- * [writtenData] / [writtenCommands]. The Swift original is actor-isolated; here
- * a lock guards the mutable maps/lists so tests and a device worker coroutine
- * can touch the mock from different threads.
+ * [writtenData] / [writtenCommands]. A lock guards the mutable maps/lists so
+ * tests and a device worker coroutine can touch the mock from different
+ * threads.
  */
 class MockBleTransport : BleTransport {
 
@@ -48,8 +47,8 @@ class MockBleTransport : BleTransport {
      * `Channel.close(cause)`: closing a channel does not wake a receiver parked
      * on a kotlinx-coroutines-test `backgroundScope` dispatcher within the
      * test's virtual time, while `trySend` provably does. In-band markers also
-     * reproduce `AsyncThrowingStream` semantics exactly — buffered packets are
-     * delivered before the failure/completion.
+     * guarantee ordering — packets buffered before the failure/completion are
+     * delivered first, then the terminal event.
      */
     private sealed interface Event {
         class Packet(val bytes: ByteArray) : Event
@@ -109,8 +108,8 @@ class MockBleTransport : BleTransport {
             ?: throw MetaWearException.OperationFailed("No mock response for $characteristic")
 
     override fun notifications(characteristic: UUID): Flow<ByteArray> {
-        // A fresh unbounded channel per subscription; like the Swift mock, the
-        // most recent subscriber per characteristic receives injections.
+        // A fresh unbounded channel per subscription; the most recent
+        // subscriber per characteristic receives injections.
         val channel = Channel<Event>(Channel.UNLIMITED)
         synchronized(lock) { notifyChannels[characteristic] = channel }
         return flow {

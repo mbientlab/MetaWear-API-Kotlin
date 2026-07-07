@@ -32,7 +32,7 @@ internal data class ModuleRegisterKey(val module: Int, val register: Int)
 
 /**
  * Routes all BLE notifications to the correct handlers. Sits between the
- * [BleTransport] and the sensor modules. Port of `MWProtocolLayer` (Swift actor).
+ * [BleTransport] and the sensor modules.
  *
  * - Read responses (register bit 7 set) resume the FIFO-queued suspended reader.
  * - Unsolicited notifications go to one-shot notify waiters (I2C/SPI reads) and
@@ -40,10 +40,9 @@ internal data class ModuleRegisterKey(val module: Int, val register: Int)
  * - All waiters and streams are failed when [stop] is called or the transport
  *   notification flow terminates.
  *
- * Where the Swift original needed a task-group race plus tombstoned waiter IDs
- * to make its timeout path safe, Kotlin's [withTimeout] cancels the parked
- * continuation directly and `invokeOnCancellation` is atomic with respect to
- * resume — the waiter map is simply pruned on cancellation.
+ * Timeout safety: [withTimeout] cancels the parked continuation directly and
+ * `invokeOnCancellation` is atomic with respect to resume — the waiter map is
+ * simply pruned on cancellation, so it stays consistent on every exit path.
  */
 internal class ProtocolRouter(
     private val transport: BleTransport,

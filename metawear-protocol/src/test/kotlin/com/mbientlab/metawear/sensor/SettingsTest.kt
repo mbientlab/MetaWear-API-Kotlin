@@ -19,12 +19,11 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from the settings-module suites in MWProductionGapTests.swift
-// ("Settings Commands", "Settings — BLE advertising name validation") plus the
-// settings Pollable conformances from MWMiscReadablesTests.swift. Reference
+// Settings-module suites: settings commands, BLE advertising-name
+// validation, and the settings Pollable conformances. Reference
 // vectors from MetaWear-SDK-Cpp/test/test_settings.py.
 
-/** Ported from the "Settings Commands" suite. */
+/** Settings command byte-layout tests. */
 class SettingsCommandTest {
 
     @Test fun setDeviceName_correctBytes() {
@@ -186,9 +185,9 @@ class SettingsCommandTest {
 
     // test_read_battery_state in `test_settings.py` asserts `[0x11, 0xCC]` because
     // it calls `mbl_mw_datasignal_read` directly on a freshly-constructed signal,
-    // where the C++ constructor leaves the SILENT bit (0x40) enabled. The
-    // *production* Combine SDK always subscribes before reading, and `subscribe()`
-    // on a readable signal clears the silent bit. So the real wire byte ships as
+    // where the C++ constructor leaves the SILENT bit (0x40) enabled. Production
+    // MetaWear SDKs always subscribe before reading (mbl_mw_datasignal_subscribe
+    // first), and subscribing to a readable signal clears the silent bit. So the real wire byte ships as
     // `0x8C`, and that is what MMS firmware actually responds to — `0xCC` is
     // silently dropped on the firmware floor. We assert the live wire shape,
     // not the idle-signal shape the Python unit test happens to capture.
@@ -345,8 +344,7 @@ class SettingsCommandTest {
 }
 
 /**
- * Ported from the "Settings — BLE advertising name validation" suite
- * (itself ported from the Combine SDK's NameUnitTests).
+ * Settings — BLE advertising-name validation suite.
  */
 class DeviceNameValidationTest {
 
@@ -406,7 +404,7 @@ class DeviceNameValidationTest {
     }
 }
 
-/** Ported from the settings Pollable conformances in MWMiscReadablesTests.swift. */
+/** Settings Pollable conformance tests. */
 class SettingsPollableTest {
 
     @Test fun batteryState_isPollable() {

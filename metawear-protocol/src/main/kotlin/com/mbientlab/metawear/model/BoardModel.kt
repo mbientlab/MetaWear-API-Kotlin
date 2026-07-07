@@ -1,7 +1,7 @@
 package com.mbientlab.metawear.model
 
 /**
- * The MetaWear board model in use. Port of `MWModel` (Swift).
+ * The MetaWear board model in use.
  *
  * The model is derived from the Model Number BLE characteristic (`0x2A24`):
  *

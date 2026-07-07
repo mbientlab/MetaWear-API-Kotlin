@@ -5,18 +5,16 @@ import androidx.room.PrimaryKey
 import kotlinx.datetime.Instant
 
 /**
- * A single download session for one sensor on one device. Port of the
- * `MWSessionRecord` SwiftData `@Model`.
+ * A single download session for one sensor on one device.
  *
  * One row is created each time `downloadLogs` completes. Its samples are
  * cascade-deleted when the session row is removed (see [SampleRecord]'s
- * foreign key — the Room analogue of SwiftData's
- * `@Relationship(deleteRule: .cascade)`).
+ * foreign key).
  *
- * Android adaptations:
- * - Swift identifies devices by CoreBluetooth peripheral `UUID`; on Android
- *   peripherals are identified by MAC address, so [deviceID] is an opaque
- *   `String` (same convention as `ScanResult.identifier` in the transport seam).
+ * Schema notes:
+ * - Devices are keyed by their Android MAC address string, so [deviceID] is an
+ *   opaque `String` (same convention as `ScanResult.identifier` in the
+ *   transport seam).
  * - [id] is a store-assigned random UUID string; all lookups go through it.
  * - Instants persist as epoch milliseconds (see `InstantConverters`).
  */

@@ -23,12 +23,12 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Ported from MWProductionGapTests.swift — read timeouts, reconnection,
+ * Production-gap coverage — read timeouts, reconnection,
  * sensor-conflict detection, settings command vectors, the disconnect event
  * source, and BLE advertising-name validation.
  *
- * Where the Swift tests poll `writtenData` with fixed sleeps, `runCurrent()`
- * on the virtual scheduler makes the same sequencing deterministic. Expected
+ * `runCurrent()` on the virtual scheduler advances the sequencing
+ * deterministically instead of fixed sleeps. Expected
  * failures inside `async` are caught with `runCatching` so the child cannot
  * fail the test scope.
  */
@@ -93,8 +93,8 @@ class ProductionGapTest {
         // Accel should succeed.
         assertArrayEquals(bytes(0x03, 0x83, 0xFF), accel.await())
 
-        // The Swift test cancels the gyro task to dodge a real 5 s wait; under
-        // virtual time the timeout is free, so let it expire and assert it.
+        // Under virtual time the 5 s timeout is free, so let it expire and
+        // assert it rather than cancelling the gyro task early.
         assertTrue(gyro.await().exceptionOrNull() is MetaWearException.Timeout)
     }
 
@@ -132,10 +132,9 @@ class ProductionGapTest {
         transport.simulateDisconnect()
         runCurrent()
 
-        // The Swift helper dedupes replies by byte content, so its reconnect
-        // needed an index-tracking replier (reconnect's discovery reads are
-        // byte-identical to the initial connect's). The Kotlin autoReply is
-        // index-based already, so a fresh replier answers every repeat.
+        // Reconnect's discovery reads are byte-identical to the initial
+        // connect's. autoReply is index-based, so a fresh replier answers
+        // every repeat even when the request bytes repeat.
         val discovery = backgroundScope.autoReplyModuleDiscovery(transport)
         device.reconnect()
         discovery.cancel()
@@ -601,8 +600,7 @@ class ProductionGapTest {
 
     // ---- BLE advertising name validation ----
     //
-    // Ported (via MWProductionGapTests.swift) from the Combine SDK's
-    // NameUnitTests: test_IsNameValid_AcceptsValidNames / RejectsInvalidNames.
+    // Verifies which advertising names are accepted and which are rejected.
 
     @Test
     fun `accepts valid names`() {

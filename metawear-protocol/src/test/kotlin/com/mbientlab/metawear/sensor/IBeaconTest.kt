@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 /**
- * Ported from MWiBeaconTests.swift — iBeacon command byte-layout tests.
+ * iBeacon command byte-layout tests.
  * Expected bytes verified against MetaWear-SDK-Cpp/test/test_ibeacon.py.
  */
 class IBeaconTest {

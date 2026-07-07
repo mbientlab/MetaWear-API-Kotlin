@@ -4,8 +4,7 @@ import com.mbientlab.metawear.model.MetaWearException
 import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Streamable
 
-// Port of MWSwitch.swift — the switch module (0x01), i.e. the board's
-// mechanical push button.
+// The switch module (0x01), i.e. the board's mechanical push button.
 //
 // Mirrors C++ `switch.{h,cpp}`. The switch module exposes exactly one thing: a
 // streaming signal for the physical push button. The firmware emits a 1-byte
@@ -17,15 +16,13 @@ import com.mbientlab.metawear.protocol.Streamable
 
 /**
  * Streams press / release events from the MetaWear's physical button.
- * Port of `MWSwitch` (Swift).
  *
  * ```kotlin
  * val stream = device.startStream(Switch())
  * stream.collect { event -> println(if (event.value) "pressed" else "released") }
  * ```
  *
- * The legacy Combine SDK called this `MWMechanicalButton`; this SDK
- * standardises on `Switch` to match the C++ module name (`MBL_MW_MODULE_SWITCH`).
+ * Named `Switch` to match the C++ module name (`MBL_MW_MODULE_SWITCH`).
  */
 class Switch : Streamable<Boolean> {
 
@@ -41,7 +38,7 @@ class Switch : Streamable<Boolean> {
 
     // The switch's "subscribe" and "enable" are the same write
     // (`[0x01, 0x01, 0x01]`) — `mbl_mw_datasignal_subscribe` is the only
-    // command the C++/Combine SDKs ever send for this module. The generic
+    // command the reference C++ SDK ever sends for this module. The generic
     // `startStream` already issues `[module, dataRegister, 0x01]` before
     // walking the enable/start commands, and `stopStreaming` issues the
     // matching `[module, dataRegister, 0x00]` on the way out, so all four

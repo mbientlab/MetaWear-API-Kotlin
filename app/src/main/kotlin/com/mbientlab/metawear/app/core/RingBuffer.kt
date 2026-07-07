@@ -1,7 +1,7 @@
 package com.mbientlab.metawear.app.core
 
 /**
- * Fixed-capacity circular buffer. Port of `RingBuffer.swift`.
+ * Fixed-capacity circular buffer.
  *
  * Appends are O(1): once full, the oldest element is overwritten and the head
  * index wraps. [elements] reconstructs insertion order (O(n) when wrapped) —

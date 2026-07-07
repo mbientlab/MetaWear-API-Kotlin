@@ -4,11 +4,10 @@ import com.mbientlab.metawear.protocol.Command
 import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 
-// Port of MWHaptic.swift — haptic module (0x08) pulse commands.
+// Haptic module (0x08) pulse commands.
 
 /**
  * Triggers a single haptic (vibration motor) or buzzer pulse.
- * Port of `MWHaptic` (Swift).
  *
  * ```kotlin
  * device.send(Haptic.motor(dutyCycle = 80, pulseWidth = 500))

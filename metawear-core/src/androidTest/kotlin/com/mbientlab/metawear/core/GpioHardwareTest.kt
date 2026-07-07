@@ -21,9 +21,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented port of the Swift `GPIOTests` — digital reads against internal
- * pulls, analog ADC/absolute reads, and the pin-change stream, all on pin 0
- * (safe to probe unwired).
+ * Instrumented GPIO smoke tests against real hardware — digital reads against
+ * internal pulls, analog ADC/absolute reads, and the pin-change stream, all on
+ * pin 0 (safe to probe unwired).
  *
  * Self-skips when the board has no GPIO module.
  */

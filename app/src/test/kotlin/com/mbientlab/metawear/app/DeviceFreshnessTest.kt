@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** Port of `DeviceFreshnessTests.swift`. */
+/** Advertisement-freshness window rules. */
 class DeviceFreshnessTest {
 
     private val now = Instant.fromEpochMilliseconds(1_700_000_000_000)

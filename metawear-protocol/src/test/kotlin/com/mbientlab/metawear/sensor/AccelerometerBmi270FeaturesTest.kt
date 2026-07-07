@@ -10,8 +10,7 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 /**
- * Ported from MWModuleCommandTests.swift — the step counter / step detector
- * portion of the "Accelerometer BMI270 — Python Vectors" suite. Reference:
+ * BMI270 step-counter / step-detector tests. Reference:
  * test_accelerometer_bmi270.py (MbientLab C++ SDK).
  */
 class AccelerometerBmi270StepsTest {
@@ -92,7 +91,7 @@ class AccelerometerBmi270StepsTest {
         assertEquals(1, AccelerometerBmi270Steps.parseStepDetection(bytes(0x03, 0x0B, 0x01)))
 }
 
-/** Ported from MWModuleCommandTests.swift — "BMI270 Feature Commands" suite. */
+/** BMI270 feature command byte-layout tests. */
 class AccelerometerBmi270FeaturesTest {
 
     // ---- Activity ----

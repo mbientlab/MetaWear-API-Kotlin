@@ -30,14 +30,14 @@ include(":metawear-protocol")
 // Step 2: Android transport layer — Nordic-backed BleTransport + hardware smoke tests.
 include(":metawear-core")
 
-// Step 3: Room-backed session persistence — port of the Swift MetaWearPersistence
-// SwiftData package (session/sample records, PersistenceStore, CSV export).
+// Step 3: Room-backed session persistence
+// (session/sample records, PersistenceStore, CSV export).
 include(":metawear-persistence")
 
-// Step 4: Nordic-DFU firmware updates — port of the Swift MetaWearFirmware
-// package (catalog client, bootloader interlock, DFU orchestration).
+// Step 4: Nordic-DFU firmware updates
+// (catalog client, bootloader interlock, DFU orchestration).
 include(":metawear-firmware")
 
-// Step 5: Jetpack Compose demo app — port of the SwiftUI MetaWear app
+// Step 5: Jetpack Compose demo app
 // (scan, live stream, logging, sessions, controls, settings, firmware, demo mode).
 include(":app")

@@ -1,13 +1,12 @@
 package com.mbientlab.metawear.firmware
 
-// Port of String+MetaWearVersion.swift — numeric version-string comparison
-// for MetaWear firmware revisions.
+// Numeric version-string comparison for MetaWear firmware revisions.
 //
 // MbientLab firmware versions follow loose dotted-numeric form ("1.5.0",
-// "1.5", "1.7.3"). Same rules as Foundation's
-// `String.compare(_:options: .numeric)`, padded with zeros so "1.5" == "1.5.0".
+// "1.5", "1.7.3"). Components are compared numerically, with the shorter
+// string right-padded with zeros so "1.5" == "1.5.0".
 // The helpers are internal because the only caller is the firmware update
-// pipeline (mirroring the Swift file's non-public extension).
+// pipeline.
 
 /**
  * Compare two MetaWear-style dotted version strings ("1.5.0", "1.5", "1.7.3").
@@ -49,7 +48,7 @@ internal fun String.isMetaWearVersionLessThanOrEqualTo(other: String): Boolean =
     metaWearVersionCompare(other) <= 0
 
 /**
- * Kotlin equivalent of Foundation's `.numeric` string comparison: runs of
+ * Numeric-aware string comparison: runs of
  * digits compare as integers ("9" < "10"), all other characters compare
  * literally, and when one string is a proper prefix of the other the longer
  * string sorts after ("2.0.0" < "2.0.0-beta").

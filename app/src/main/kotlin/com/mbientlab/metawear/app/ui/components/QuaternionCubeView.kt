@@ -14,9 +14,9 @@ import com.mbientlab.metawear.app.ui.theme.GlassSurfaceHigh
 
 /**
  * Dependency-free 3D orientation cube: rotates a wireframe cube by the live
- * fusion quaternion and draws it with a simple orthographic projection —
- * the Canvas port of `QuaternionRealityView.swift`'s intent. Depth is cued
- * by edge alpha (nearer edges brighter and thicker).
+ * fusion quaternion and draws it on a Canvas with a simple orthographic
+ * projection. Depth is cued by edge alpha (nearer edges brighter and
+ * thicker).
  */
 @Composable
 fun QuaternionCubeView(

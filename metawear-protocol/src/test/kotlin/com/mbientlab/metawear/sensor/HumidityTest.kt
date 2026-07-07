@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
-// Ported from MWHumidityTests.swift — Humidity (BME280). Reference vectors
+// Humidity (BME280) suites. Reference vectors
 // from MetaWear-SDK-Cpp/test/backup/test_humidity_bme280.py.
 
 class HumidityCommandTest {

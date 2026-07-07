@@ -6,9 +6,8 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Dark-first palette echoing the Swift app's "Glass" look: deep blue-black
-// backgrounds, translucent card surfaces, cool cyan accent. (The app is
-// dark-themed in both system modes, like the original.)
+// Dark-first "glass" palette: deep blue-black backgrounds, translucent card
+// surfaces, cool cyan accent. (The app is dark-themed in both system modes.)
 
 val GlassBackground = Color(0xFF0B0F14)
 val GlassSurface = Color(0xFF141B24)
@@ -21,8 +20,7 @@ val GlassWarn = Color(0xFFFFB74D)
 val GlassError = Color(0xFFEF6E6E)
 val GlassGood = Color(0xFF69D18C)
 
-// Chart channel colors (x/red, y/green, z/blue, w/extra purple) — matches the
-// Swift axis styling.
+// Chart channel colors (x/red, y/green, z/blue, w/extra purple).
 val ChannelColors = listOf(
     Color(0xFFEF6E6E), // red
     Color(0xFF69D18C), // green
@@ -30,7 +28,7 @@ val ChannelColors = listOf(
     Color(0xFFB086F2), // purple
 )
 
-/** Quaternion/Euler order the Swift app uses: w/heading leads in purple. */
+/** Quaternion/Euler chart order: w/heading leads in purple. */
 val FourChannelColors = listOf(
     Color(0xFFB086F2), // w / heading
     Color(0xFFEF6E6E), // x / pitch
@@ -54,7 +52,7 @@ private val DarkScheme = darkColorScheme(
 
 @Composable
 fun MetaWearTheme(content: @Composable () -> Unit) {
-    // Dark in both modes, like the Swift app's glass design.
+    // Dark in both modes — the glass look is dark-first by design.
     isSystemInDarkTheme()
     MaterialTheme(
         colorScheme = DarkScheme,

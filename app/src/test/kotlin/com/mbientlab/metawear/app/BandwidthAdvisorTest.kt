@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** Port of `BandwidthAdvisorTests.swift`. */
+/** BLE bandwidth-ceiling and throttle-offer math. */
 class BandwidthAdvisorTest {
 
     @Test

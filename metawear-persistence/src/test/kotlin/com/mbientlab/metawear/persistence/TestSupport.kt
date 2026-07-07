@@ -6,8 +6,7 @@ import com.mbientlab.metawear.model.LoggedSample
 import java.util.UUID
 import kotlinx.datetime.Instant
 
-// Shared helpers for the store/export tests — ports of the file-private
-// helpers in MWPersistenceStoreTests.swift.
+// Shared helpers for the store/export tests.
 
 internal fun makeStore(): PersistenceStore = PersistenceStore(FakePersistenceDao())
 
@@ -21,9 +20,8 @@ internal fun makeDeviceInfo(serial: String = "AA:BB:CC:DD:EE:FF"): DeviceInforma
     )
 
 /**
- * A unique device identifier. The Swift tests use `UUID()` (CoreBluetooth
- * peripheral IDs); on Android device IDs are opaque strings, so a random UUID
- * string plays the same role.
+ * A unique device identifier. Device IDs are opaque strings, so tests use a
+ * random UUID string.
  */
 internal fun randomDeviceID(): String = UUID.randomUUID().toString()
 
@@ -38,5 +36,5 @@ internal fun cartesianSamples(
     )
 }
 
-/** Fixed stand-in for the Swift tests' `Date()` where the timestamp is irrelevant. */
+/** Fixed timestamp used where the exact value is irrelevant. */
 internal val someInstant: Instant = Instant.fromEpochMilliseconds(1_700_000_000_000)

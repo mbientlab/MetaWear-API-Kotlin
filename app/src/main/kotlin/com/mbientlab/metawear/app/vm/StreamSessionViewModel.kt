@@ -23,7 +23,7 @@ import kotlinx.datetime.Instant
 /**
  * Live-streaming session: one [Channel] per selected sensor, BLE consume
  * coroutines feeding plain ring buffers, and a ~33 ms throttle loop that
- * snapshots into observable state. Port of `StreamSessionViewModel.swift`.
+ * snapshots into observable state.
  */
 class StreamSessionViewModel(private val container: AppContainer) : ViewModel() {
 

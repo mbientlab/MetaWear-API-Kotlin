@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWFirmwareServerTests.swift — coverage for FirmwareServer, the
+// Coverage for FirmwareServer, the
 // layer above FirmwareCatalog that coordinates HTTP fetches, build selection,
 // and update detection.
 //
@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test
 // mock can be configured to return canned data, simulate HTTP errors, and
 // observe which URLs were requested.
 
-/** Port of the "MWFirmwareServer" suite. */
+/** Tests for [FirmwareServer]. */
 class FirmwareServerTest {
 
     // ---- Catalog reads ----
@@ -155,9 +155,8 @@ class FirmwareServerTest {
     @Test
     fun `updateAvailable returnsLatestWhenAheadOfSDK`() = runTest {
         // Device ahead of what THIS SDK can flash — return the latest the SDK
-        // can support, even if it's a downgrade. This matches the legacy
-        // Combine SDK's behaviour and lets users pin a known-good version
-        // when the SDK isn't ready for the latest beta.
+        // can support, even if it's a downgrade. This lets users pin a
+        // known-good version when the SDK isn't ready for the latest beta.
         val server = FirmwareServer(
             fetcher = MockFirmwareFetcher(catalog = Fixtures.catalogJSON),
             catalogUrl = Fixtures.catalogUrl,
@@ -206,8 +205,8 @@ class FirmwareServerTest {
     // ---- Firmware download / staging ----
 
     // These exercise the REAL file staging path — the one place in the server
-    // that touches the filesystem. A regression here shipped once in the
-    // Swift SDK: staging resolved against the REMOTE firmware URL, which
+    // that touches the filesystem. Regression guard: staging must never
+    // resolve against the REMOTE firmware URL — that bug once shipped and
     // threw `The file "firmware.zip" doesn't exist` after every successful
     // download on device.
 
@@ -332,7 +331,7 @@ private object Fixtures {
 
     /**
      * Same shape as FirmwareCatalogTest.catalogJSON — duplicated so each test
-     * file is self-contained (mirroring the Swift fixtures).
+     * file is self-contained.
      */
     val catalogJSON: ByteArray = """
     {

@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWLogFinishingTests.swift: the log time anchor, logger-registry
+// Log-finishing coverage: the log time anchor, logger-registry
 // persistence across disconnects, queryActiveLoggers, recoverLoggers, and
 // LoggedSample field semantics.
 

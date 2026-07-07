@@ -5,8 +5,8 @@ import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.PacketParser
 
 /**
- * Bosch BMI160 accelerometer (MetaMotion R / RL — model 5). Port of
- * `MWAccelerometerBMI160` (Swift). Samples are `CartesianFloat` in units of g.
+ * Bosch BMI160 accelerometer (MetaMotion R / RL — model 5). Samples are
+ * `CartesianFloat` in units of g.
  *
  * Scale factors (LSB/g): ±2g = 16384, ±4g = 8192, ±8g = 4096, ±16g = 2048.
  */
@@ -59,9 +59,9 @@ class AccelerometerBmi160(
 }
 
 /**
- * Bosch BMI270 accelerometer (MetaMotion S — model 8). Port of
- * `MWAccelerometerBMI270` (Swift). Same ODR / range options as the BMI160; the
- * config-byte encoding and packed-data register differ.
+ * Bosch BMI270 accelerometer (MetaMotion S — model 8). Same ODR / range
+ * options as the BMI160; the config-byte encoding and packed-data register
+ * differ.
  */
 class AccelerometerBmi270(
     val odr: Odr = Odr.HZ100,

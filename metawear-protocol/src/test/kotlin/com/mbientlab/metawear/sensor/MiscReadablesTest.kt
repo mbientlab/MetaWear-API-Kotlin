@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWMiscReadablesTests.swift.
+// Miscellaneous readables: log length, log time, and MAC address.
 
 // ---- LogLength — shape + parsing ----
 
@@ -105,9 +105,9 @@ class LastResetTimeTest {
     }
 }
 
-// ---- MacAddress — parity with MWSettings.ReadMacAddress ----
+// ---- MacAddress — alias of Settings.ReadMacAddress ----
 //
-// Like Swift's MWMACAddress, MacAddress is a typealias for the canonical
+// MacAddress is a typealias for the canonical
 // Settings.ReadMacAddress; these tests pin the shared wire identity through
 // the alias so a future divergence fails loudly.
 
@@ -139,10 +139,9 @@ class MacAddressTest {
 
 // ---- Pollable conformances ----
 //
-// Swift marks these via retroactive protocol conformance; Kotlin types declare
-// Pollable directly, so the compile-time assignments below are the equivalent
-// assertions. Conformances for other modules' readables (battery, humidity,
-// power/charge status, …) live with those types.
+// The types declare Pollable directly, so the compile-time assignments below
+// are the assertions. Conformances for other modules' readables (battery,
+// humidity, power/charge status, …) live with those types.
 
 class MiscReadablesPollableConformanceTest {
 

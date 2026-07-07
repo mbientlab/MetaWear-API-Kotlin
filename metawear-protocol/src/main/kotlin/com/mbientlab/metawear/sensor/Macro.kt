@@ -7,7 +7,7 @@ import com.mbientlab.metawear.protocol.CommandSequence
 import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 
-// Port of MWMacro.swift — flash-stored command macros (module 0x0F).
+// Flash-stored command macros (module 0x0F).
 // Macro recording commands (BEGIN's ADD/END phase) go out write-WITH-response
 // via `writeMacroRaw`, matching the firmware's flash-write pacing requirement.
 
@@ -63,9 +63,9 @@ data class Macro(
  *   1. Re-applies the LED pattern, and
  *   2. Re-creates the button → LED Play binding.
  *
- * The Swift original is an `actor`; here the recorder is only touched
- * sequentially by the `recordMacro` body, which runs to completion before the
- * packets are drained.
+ * No synchronization is needed: the recorder is only touched sequentially by
+ * the `recordMacro` body, which runs to completion before the packets are
+ * drained.
  */
 class MacroRecorder internal constructor() {
 

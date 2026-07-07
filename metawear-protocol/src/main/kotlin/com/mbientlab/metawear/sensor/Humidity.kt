@@ -9,7 +9,7 @@ import com.mbientlab.metawear.protocol.PacketParser
 import com.mbientlab.metawear.protocol.Pollable
 import com.mbientlab.metawear.protocol.PolledLoggable
 
-// Humidity (BME280). Port of MWHumidity.swift; mirrors C++
+// Humidity (BME280). Mirrors C++
 // `humidity_bme280.{h,cpp}`. The humidity module (0x16) is only present on
 // MetaEnvironment boards, which carry a BME280 chip exposing relative humidity
 // as a BME280_HUMIDITY fixed-point value (raw UInt32 / 1024).
@@ -20,7 +20,6 @@ import com.mbientlab.metawear.protocol.PolledLoggable
 
 /**
  * One-shot read of the BME280 relative-humidity signal (percent, 0-100).
- * Port of `MWHumidity` (Swift).
  *
  * Use [MetaWearDevice.readHumidity], or plug into the generic read pipeline as
  * any other [Pollable] sensor. Wrap in a
@@ -60,8 +59,7 @@ class Humidity : Pollable<Float>, PolledLoggable<Float> {
 }
 
 /**
- * Configure the humidity sensor's oversampling mode. Port of
- * `MWHumiditySetOversampling` (Swift); mirrors C++
+ * Configure the humidity sensor's oversampling mode. Mirrors C++
  * `mbl_mw_humidity_bme280_set_oversampling` — register 0x02, payload `[raw]`.
  *
  * Python reference vectors (from `test_humidity_bme280.py`):

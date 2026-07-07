@@ -3,10 +3,9 @@ package com.mbientlab.metawear.firmware
 import android.app.Activity
 import no.nordicsemi.android.dfu.DfuBaseService
 
-// Android-specific companion to DFUSession.swift's Nordic wrapper: on iOS the
-// Nordic library runs in-process, but the Android library performs the
-// transfer inside an Android service, which must be a concrete DfuBaseService
-// subclass registered in the manifest.
+// Companion to [DfuSession]: the Nordic library performs the transfer inside
+// an Android service, which must be a concrete DfuBaseService subclass
+// registered in the manifest.
 
 /**
  * The Android service that hosts the Nordic DFU transfer.

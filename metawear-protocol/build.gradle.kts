@@ -4,8 +4,8 @@ plugins {
 }
 
 // Pure-JVM module — no Android dependencies. Keeping the protocol/parsing layer
-// here means its tests run on a plain JVM in milliseconds (the equivalent of the
-// Swift package's no-hardware `swift test` suite) and the door stays open to a
+// here means its tests run on a plain JVM in milliseconds with no hardware or
+// emulator required, and the door stays open to a
 // future Kotlin Multiplatform commonMain target.
 kotlin {
     jvmToolchain(21)

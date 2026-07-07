@@ -12,22 +12,18 @@ import no.nordicsemi.android.dfu.DfuProgressListenerAdapter
 import no.nordicsemi.android.dfu.DfuServiceInitiator
 import no.nordicsemi.android.dfu.DfuServiceListenerHelper
 
-// Port of DFUSession.swift — adapter that wraps the Nordic DFU library's
-// delegate-based API into a cold Flow<DFUProgress>.
+// Adapts the Nordic DFU library's broadcast callbacks into a cold
+// Flow<DFUProgress>.
 //
-// The Swift wrapper adapts NordicDFU's iOS delegates (DFUServiceDelegate /
-// DFUProgressDelegate) called from a private dispatch queue; the Android
-// library instead runs the transfer inside a DfuBaseService and reports
+// The Nordic library runs the transfer inside a DfuBaseService and reports
 // progress through LocalBroadcastManager broadcasts, surfaced here via
-// DfuProgressListenerAdapter. Where Swift owns isolation with a lock +
-// AsyncThrowingStream continuation, Kotlin gets the same guarantee from
-// callbackFlow: trySend/close are thread-safe, and cancellation of the
-// collecting coroutine runs awaitClose, which maps to Nordic's abort() —
-// exactly like the Swift onTermination handler.
+// DfuProgressListenerAdapter. callbackFlow supplies the concurrency
+// guarantees: trySend/close are thread-safe, and cancellation of the
+// collecting coroutine runs awaitClose, which maps to Nordic's abort() — so
+// cancelling the collector cancels the update.
 //
-// Like the Swift original, this file has no unit-test coverage — it's purely
-// a wrapper around the Nordic library, which itself can only be exercised on
-// real hardware.
+// No unit-test coverage — this file is purely a wrapper around the Nordic
+// library, which itself can only be exercised on real hardware.
 
 /**
  * Owns one Nordic DFU run from start to finish.
@@ -62,8 +58,8 @@ internal class DfuSession(
      *   collector aborts the in-flight DFU.
      */
     fun run(firmware: File, targetAddress: String): Flow<DFUProgress> = callbackFlow {
-        // Parts bookkeeping mirrors the Swift State struct: non-upload phases
-        // report the part counters most recently seen from the library.
+        // Parts bookkeeping: non-upload phases report the part counters most
+        // recently seen from the library.
         var currentPart = 1
         var totalParts = 1
         var finished = false
@@ -88,7 +84,7 @@ internal class DfuSession(
             // The buttonless DFU service is being asked to reset into
             // bootloader. We've already done the MetaWear-specific handoff
             // before reaching this callback; map to BOOTLOADER_HANDOFF for
-            // visibility (parity with the Swift .enablingDfuMode case).
+            // visibility.
             override fun onEnablingDfuMode(deviceAddress: String) = send(DFUProgress.State.BOOTLOADER_HANDOFF)
 
             // Real progress comes through onProgressChanged — this fires once
@@ -170,9 +166,8 @@ internal class DfuSession(
         awaitClose {
             DfuServiceListenerHelper.unregisterProgressListener(context, listener)
             // Consumer-side termination (collector cancelled) maps to Nordic's
-            // abort(), like the Swift onTermination handler. Terminal states
-            // already tore the service down; aborting then would be a no-op
-            // broadcast, but skip it for cleanliness.
+            // abort(). Terminal states already tore the service down; aborting
+            // then would be a no-op broadcast, but skip it for cleanliness.
             if (!finished && !controller.isAborted) {
                 runCatching { controller.abort() }
                     .onFailure { Log.w(TAG, "DFU abort on cancellation failed", it) }

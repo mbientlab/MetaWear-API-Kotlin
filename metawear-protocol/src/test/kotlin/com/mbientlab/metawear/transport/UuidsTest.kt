@@ -4,7 +4,7 @@ import java.util.UUID
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** UUID constants must match MWUUIDs.swift byte-for-byte. */
+/** GATT UUID constants are frozen protocol facts — any change breaks device compatibility. */
 class UuidsTest {
 
     @Test

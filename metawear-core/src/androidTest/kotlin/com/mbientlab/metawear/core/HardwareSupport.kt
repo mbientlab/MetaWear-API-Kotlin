@@ -16,8 +16,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assume.assumeTrue
 
 /**
- * Shared plumbing for the hardware smoke suite. Port of the Swift
- * `Tests/MetaWearHardwareTests/HardwareSupport.swift`.
+ * Shared plumbing for the hardware smoke suite.
  *
  * - Scans **once** per instrumentation run and caches the result, so the whole
  *   suite pays a single scan timeout.
@@ -25,7 +24,7 @@ import org.junit.Assume.assumeTrue
  *   as *skipped*, not failed — safe to keep in CI without a bench board.
  * - With several boards in range, the scan gathers candidates for a few
  *   seconds and picks the lowest MAC — arbitrary but stable per bench, so
- *   every run exercises the same board (Swift parity).
+ *   every run exercises the same board.
  *
  * All timeouts are real wall-clock time (`runBlocking`, not `runTest`): these
  * tests drive an actual radio.
@@ -99,7 +98,7 @@ object HardwareSupport {
                 block(device)
             } finally {
                 // Give the radio a beat to flush trailing write-without-response
-                // packets (e.g. LED stop) before tearing the link down (Swift parity).
+                // packets (e.g. LED stop) before tearing the link down.
                 delay(100)
                 runCatching { device.disconnect() }
             }

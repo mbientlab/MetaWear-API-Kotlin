@@ -20,9 +20,8 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWFactoryResetTests.swift, plus coverage for
-// sendExpectingDisconnect (whose Swift original is only exercised against
-// hardware).
+// Factory-reset coverage, plus coverage for sendExpectingDisconnect
+// (a path otherwise only exercised against hardware).
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class FactoryResetTest {

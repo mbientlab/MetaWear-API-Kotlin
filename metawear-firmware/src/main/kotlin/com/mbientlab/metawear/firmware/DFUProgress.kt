@@ -1,6 +1,6 @@
 package com.mbientlab.metawear.firmware
 
-// Port of DFUProgress.swift — public progress event emitted by the Flow
+// Public progress event emitted by the Flow
 // returned from `MetaWearDevice.updateFirmware(...)`.
 
 /**

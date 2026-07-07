@@ -24,10 +24,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * Connection lifecycle + identity for the active device. Port of
- * `DeviceViewModel.swift`: connects on first appearance, reads battery/MAC
- * once settled, polls battery every 60 s, and upserts the remembered-device
- * bookmark after a successful connect.
+ * Connection lifecycle + identity for the active device: connects on first
+ * appearance, reads battery/MAC once settled, polls battery every 60 s, and
+ * upserts the remembered-device bookmark after a successful connect.
  */
 class DeviceViewModel(private val container: AppContainer) : ViewModel() {
 
@@ -122,7 +121,7 @@ class DeviceViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     private fun rememberDevice(device: MetaWearDevice) {
-        // The demo device is never persisted (Swift parity).
+        // The demo device is never persisted.
         if (device.identifier == DemoBleTransport.DEVICE_IDENTIFIER) return
         val info = device.deviceInfo
         container.remembered.upsert(

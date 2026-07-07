@@ -59,10 +59,9 @@ import kotlinx.datetime.Instant
 
 /**
  * A [SensorSelection] resolved against the connected board's module table into
- * a typed SDK sensor. Centralizes the typed dispatch (the Kotlin analogue of
- * the Swift app's `switch selection.id` blocks) so ViewModels stay
- * monomorphic: streams surface as [AnyChartSample], persistence goes through
- * the matching [Persistable] codec.
+ * a typed SDK sensor. Centralizes the per-sensor typed dispatch in one place
+ * so ViewModels stay monomorphic: streams surface as [AnyChartSample],
+ * persistence goes through the matching [Persistable] codec.
  */
 sealed interface ConfiguredSensor {
     val selection: SensorSelection
@@ -410,9 +409,9 @@ suspend fun ConfiguredSensor.decodeAndSave(
 // ---- Live-buffer archiving ----
 
 /**
- * Persist a live-stream capture buffer as a session (the Swift app's
- * archive-to-history on stop). Chart samples are rehydrated into their typed
- * form via the channel-count convention in [AnyChartSample].
+ * Persist a live-stream capture buffer as a session (archive-to-history on
+ * stop). Chart samples are rehydrated into their typed form via the
+ * channel-count convention in [AnyChartSample].
  */
 suspend fun ConfiguredSensor.saveLiveBuffer(
     store: PersistenceStore,

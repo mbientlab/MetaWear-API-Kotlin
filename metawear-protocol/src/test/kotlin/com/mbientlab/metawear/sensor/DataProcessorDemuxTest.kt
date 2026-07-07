@@ -18,8 +18,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Proof of the per-id data-processor demux — the Kotlin port of the Swift
-// `processorDemuxTask` / `processorContinuations` pair (MetaWearDevice.swift).
+// Proof of the per-id data-processor demux.
 // One shared (0x09, 0x03) router subscription fans NOTIFY packets out to
 // per-processor-id flows, so multiple processors stream simultaneously;
 // streams are torn down on disconnect (cleanly when intentional, with the
@@ -50,7 +49,7 @@ class DataProcessorDemuxTest {
     private fun packet(id: Int, payload: Int) =
         bytes(0x09, 0x03, id, payload, 0x00, 0x00, 0x00)
 
-    // ---- Concurrent streams (the Swift-parity headline) ----
+    // ---- Concurrent streams (the headline behavior) ----
 
     @Test
     fun `two simultaneous processor streams receive only their own packets`() = runTest {
@@ -254,7 +253,7 @@ class DataProcessorDemuxTest {
         device.streamProcessor(handle(0))
         device.streamProcessor(handle(1))
 
-        // Same command sequence as the Swift SDK: NOTIFY_ENABLE per processor
+        // Expected command sequence: NOTIFY_ENABLE per processor
         // id plus the shared NOTIFY-register subscribe write.
         assertArrayEquals(bytes(0x09, 0x07, 0x00, 0x01), transport.writtenCommands[0])
         assertArrayEquals(bytes(0x09, 0x03, 0x01), transport.writtenCommands[1])

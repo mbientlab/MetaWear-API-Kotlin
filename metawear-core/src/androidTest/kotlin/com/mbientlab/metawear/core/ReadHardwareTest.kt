@@ -21,7 +21,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented port of the Swift `ReadTests` — the one-shot readable surface:
+ * Instrumented smoke tests for the one-shot readable surface on real hardware:
  * every temperature channel, battery state, last-reset time, log length, and
  * the MAC address (which also proves the `MacAddress` →
  * `Settings.ReadMacAddress` alias reads the right register on real firmware).
@@ -47,7 +47,7 @@ class ReadHardwareTest {
 
             sources.forEachIndexed { channel, source ->
                 // The BMP280's thermometer only samples while the barometer
-                // is running — wake it briefly for that channel (Swift parity).
+                // is running — wake it briefly for that channel.
                 val needsBarometer = source == ThermometerSource.BMP280 && device.hasBarometer
                 val barometer = Barometer()
                 if (needsBarometer) {
@@ -90,7 +90,7 @@ class ReadHardwareTest {
     @Test
     fun logLength_readReturnsCount() =
         HardwareSupport.withConnectedDevice { device ->
-            // Any UInt32 is valid — this is a wiring smoke test (Swift parity).
+            // Any UInt32 is valid — this is a wiring smoke test.
             val length = device.read(LogLength()).value
             assertTrue("log length should be non-negative: $length", length >= 0L)
         }

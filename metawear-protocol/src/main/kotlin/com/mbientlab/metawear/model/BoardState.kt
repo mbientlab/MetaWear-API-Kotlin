@@ -3,8 +3,6 @@ package com.mbientlab.metawear.model
 import com.mbientlab.metawear.protocol.Module
 import kotlinx.datetime.Instant
 
-// Port of MWBoardState.swift.
-//
 // Persisted snapshot of a MetaWear board's post-initialize state. Lets a client
 // skip the full re-discovery handshake on reconnect when the firmware revision
 // and hardware revision still match.
@@ -14,8 +12,8 @@ import kotlinx.datetime.Instant
 // stable on-disk format. Callers who need C++ interop should keep the C++ SDK
 // alongside; everyone else should prefer this.
 //
-// Wire format: JSON with sorted keys (deterministic output, matching the Swift
-// encoder's `.sortedKeys`). Keys are stable. The `schemaVersion` integer is
+// Wire format: JSON with sorted keys, so encoding the same state always
+// produces identical bytes. Keys are stable. The `schemaVersion` integer is
 // bumped on backwards-incompatible changes so callers can discard old caches.
 // The module is dependency-light by design, so the fixed-schema JSON codec is
 // implemented here rather than pulling in a serialization library.

@@ -1,9 +1,9 @@
 package com.mbientlab.metawear.app.core
 
 /**
- * BLE bandwidth guidance for multi-sensor streaming sessions. Port of
- * `BandwidthAdvisor.swift`: a notification-based BLE link comfortably moves
- * ~100 samples/second in aggregate; beyond that the radio drops packets.
+ * BLE bandwidth guidance for multi-sensor streaming sessions: a
+ * notification-based BLE link comfortably moves ~100 samples/second in
+ * aggregate; beyond that the radio drops packets.
  */
 object BandwidthAdvisor {
 

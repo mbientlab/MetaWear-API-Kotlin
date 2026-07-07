@@ -18,7 +18,7 @@ import kotlinx.datetime.Instant
 /**
  * Scan-screen state: nearby devices merged from the SDK scanner's StateFlows,
  * remembered devices from the prefs store, plus the demo device when demo
- * mode is on. Port of `ScannerViewModel.swift`.
+ * mode is on.
  */
 class ScannerViewModel(private val container: AppContainer) : ViewModel() {
 

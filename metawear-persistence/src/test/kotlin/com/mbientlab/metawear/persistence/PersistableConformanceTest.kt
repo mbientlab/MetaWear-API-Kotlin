@@ -9,12 +9,11 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWPersistableConformanceTests.swift — encode/decode round-trip
-// tests for the Persistable codecs. These verify that persistenceKind,
-// persistenceValues and fromPersistence are consistent for every supported
-// type — no database needed.
+// Encode/decode round-trip tests for the Persistable codecs. These verify
+// that persistenceKind, persistenceValues and fromPersistence are consistent
+// for every supported type — no database needed.
 
-/** Port of the "MWPersistable — kind strings" suite. */
+/** Kind strings. */
 class PersistableKindTest {
 
     @Test
@@ -48,7 +47,7 @@ class PersistableKindTest {
     }
 }
 
-/** Port of the "MWPersistable — encode/decode round-trip" suite. */
+/** Encode/decode round-trips. */
 class PersistableRoundTripTest {
 
     @Test

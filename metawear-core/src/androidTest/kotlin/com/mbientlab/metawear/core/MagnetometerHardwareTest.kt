@@ -15,9 +15,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented port of the Swift `MagnetometerTests` (MagnetometerDataTests +
- * MagnetometerPackedDataTests + MagnetometerSuspendTests) — BMM150 magnetic
- * field streaming and power management.
+ * Instrumented magnetometer smoke tests against real hardware — BMM150
+ * magnetic field streaming and power management.
  *
  * Self-skips when the board has no magnetometer (or the revision lacks the
  * packed/suspend features).
@@ -43,7 +42,7 @@ class MagnetometerHardwareTest {
             val samples = collectStreamFor(stream, millis = 4_000)
             device.stopStreaming(mag)
 
-            // Swift subscribe_magnetic_field_data asserts >= 3 in 4 s at 10 Hz.
+            // Expect >= 3 samples in 4 s at 10 Hz output.
             assertTrue("expected >= 3 field samples in ~4 s at 10 Hz, got ${samples.size}", samples.size >= 3)
             assertEquals(DeviceState.Idle, device.state.value)
         }
@@ -59,8 +58,8 @@ class MagnetometerHardwareTest {
             device.stopStreaming(mag)
 
             assertTrue("expected > 30 samples in ~8 s at 20 Hz, got ${samples.size}", samples.size > 30)
-            // Earth's field is ~25–65 µT; indoor interference widens the band.
-            // Swift magnetometer_receivesFieldData accepts 10–500 µT.
+            // Earth's field is ~25–65 µT; indoor interference widens the band,
+            // so accept 10–500 µT.
             val last = samples.last()
             val magnitude = sqrt((last.x * last.x + last.y * last.y + last.z * last.z).toDouble())
             assertTrue(
@@ -81,7 +80,8 @@ class MagnetometerHardwareTest {
             val samples = collectStreamFor(stream, millis = 3_000)
             device.stopStreaming(mag)
 
-            // 20 Hz × 3 s ≈ 60 samples (3 per packed packet); Swift asserts > 30.
+            // 20 Hz × 3 s ≈ 60 samples (3 per packed packet); > 30 tolerates
+            // connection ramp-up.
             assertTrue("expected > 30 packed samples in ~3 s at 20 Hz, got ${samples.size}", samples.size > 30)
             assertEquals(DeviceState.Idle, device.state.value)
         }
@@ -93,7 +93,7 @@ class MagnetometerHardwareTest {
             assumeTrue("magnetometer absent — skipping", info?.isPresent == true)
             assumeTrue("suspend needs revision >= 2, got ${info?.revision}", (info?.revision ?: 0) >= 2)
 
-            // Command-only (Swift parity): assert nothing beyond "no throw".
+            // Command-only, no readable feedback: assert nothing beyond "no throw".
             device.send(Magnetometer.Suspend())
         }
 }

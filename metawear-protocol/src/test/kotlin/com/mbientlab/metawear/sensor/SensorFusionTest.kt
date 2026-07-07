@@ -6,10 +6,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Ported from MWSensorFusionLoggingTests.swift — the sensor-fusion Loggable
- * conformance (logger keys, flash-log chunk layouts, parseLogSample). All of
- * the Swift suite ports cleanly: none of its tests require the not-yet-ported
- * `device.startLogging` / `downloadLogs`.
+ * Sensor-fusion Loggable conformance tests
+ * (logger keys, flash-log chunk layouts, parseLogSample).
  */
 class SensorFusionLoggingTest {
 

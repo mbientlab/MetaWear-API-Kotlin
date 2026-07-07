@@ -2,10 +2,9 @@ package com.mbientlab.metawear.app.core
 
 /**
  * The sensors the app can stream/log, with per-sensor rate/range menus and
- * display metadata. Port of `SensorSelection.swift`: the IMU + fusion
- * surface, the polled environmental readables (temperature, humidity,
- * polled pressure), and the streamed environmental signals (barometer
- * pressure, altitude, ambient light).
+ * display metadata: the IMU + fusion surface, the polled environmental
+ * readables (temperature, humidity, polled pressure), and the streamed
+ * environmental signals (barometer pressure, altitude, ambient light).
  */
 enum class SensorKey(
     /** Human-readable name. */

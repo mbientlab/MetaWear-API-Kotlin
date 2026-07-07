@@ -2,15 +2,15 @@ package com.mbientlab.metawear.firmware
 
 import java.net.URI
 
-// Port of MWFirmwareBuild.swift — value type describing one firmware artifact
-// on MbientLab's release CDN. Swift's `URL` maps to `java.net.URI` (inert
-// value type, supports file:// URIs, no network access on construction).
+// Value type describing one firmware artifact on MbientLab's release CDN.
+// URLs are held as `java.net.URI` (inert value type, supports file:// URIs,
+// no network access on construction).
 
 /** Last path segment of a URI ("…/1.7.3/firmware.zip" → "firmware.zip"). */
 internal val URI.lastPathComponent: String
     get() = (path ?: toString()).substringAfterLast('/')
 
-/** Whether this URI points at a local file (Swift `URL.isFileURL`). */
+/** Whether this URI points at a local file (`file://` scheme). */
 internal val URI.isFileUri: Boolean
     get() = scheme == "file"
 

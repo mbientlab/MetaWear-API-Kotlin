@@ -3,8 +3,7 @@ package com.mbientlab.metawear.persistence
 import kotlin.reflect.KClass
 
 /**
- * The flat `(f0..f3, accuracy)` packing stored in [SampleRecord]. Port of the
- * `persistenceValues` tuple in `MWPersistable.swift`.
+ * The flat `(f0..f3, accuracy)` packing stored in [SampleRecord].
  *
  * Field mapping by sensor kind:
  * ```
@@ -27,13 +26,12 @@ data class PersistedValues(
 
 /**
  * A codec that stores sample type [S] in — and reconstructs it from — the flat
- * layout of [SampleRecord]. Port of the `MWPersistable` protocol.
+ * layout of [SampleRecord].
  *
- * Swift expresses this as retroactive protocol conformances with static
- * requirements (including on `Float` and `Bool`, which Kotlin cannot extend
- * with new supertypes), so each conformance becomes a singleton codec object
- * here — see `PersistableConformances.kt`. Store methods that Swift constrains
- * with `<S: MWPersistable>` take the codec object as an explicit argument.
+ * Each supported sample type (including `Float` and `Boolean`, which cannot be
+ * given new supertypes) gets one singleton codec object — see
+ * `PersistableConformances.kt`. Store methods that operate on a specific
+ * sample type take the codec object as an explicit argument.
  *
  * Adding support for a new sensor type means:
  * 1. Add the data class to `ValueTypes.kt` in `:metawear-protocol`.

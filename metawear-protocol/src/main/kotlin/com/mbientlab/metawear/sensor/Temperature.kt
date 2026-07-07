@@ -9,7 +9,7 @@ import com.mbientlab.metawear.protocol.PacketParser
 import com.mbientlab.metawear.protocol.Pollable
 import com.mbientlab.metawear.protocol.PolledLoggable
 
-// Multi-channel temperature. Port of MWTemperature.swift; mirrors C++
+// Multi-channel temperature. Mirrors C++
 // `multichanneltemperature.{h,cpp}`. The temperature module (0x04) exposes a
 // variable number of channels, each backed by one of four source types. Board
 // layouts vary:
@@ -23,8 +23,7 @@ import com.mbientlab.metawear.protocol.PolledLoggable
 
 /**
  * Physical source backing one channel of the multi-channel temperature module.
- * Port of `MWThermometerSource` (Swift); raw values match C++
- * `MblMwTemperatureSource`.
+ * Raw values match C++ `MblMwTemperatureSource`.
  */
 enum class ThermometerSource(val raw: Int) {
     /** Sentinel for unknown / out-of-range channel indices. */
@@ -40,9 +39,9 @@ enum class ThermometerSource(val raw: Int) {
 }
 
 /**
- * One-shot temperature read from a specific channel on the temperature module.
- * Port of `MWTemperatureChannel` (Swift) — the backwards-compatible read-command
- * surface. The physical source at each channel depends on the board.
+ * One-shot temperature read from a specific channel on the temperature module
+ * — the backwards-compatible read-command surface. The physical source at
+ * each channel depends on the board.
  */
 class TemperatureChannel(
     /** Thermometer channel index (0-3 depending on board). */
@@ -93,7 +92,7 @@ class TemperatureChannel(
 
 /**
  * One-shot temperature read (Celsius) from a single channel of the
- * multi-channel temperature module (0x04). Port of `MWThermometer` (Swift).
+ * multi-channel temperature module (0x04).
  * Drop-in [Pollable] wrapper around a channel index; use `silent = true` to
  * issue the read without firing the notification dispatcher.
  */
@@ -152,8 +151,8 @@ class Thermometer(
 
 /**
  * Command that configures an external thermistor's GPIO pin mapping for one
- * channel of the temperature module. Port of `MWThermometerConfigureExt`
- * (Swift); mirrors C++ `mbl_mw_multi_chnl_temp_configure_ext_thermistor`.
+ * channel of the temperature module. Mirrors C++
+ * `mbl_mw_multi_chnl_temp_configure_ext_thermistor`.
  *
  * Wire format: register 0x02, payload `[channel, dataPin, pulldownPin, activeHigh]`.
  */

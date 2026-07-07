@@ -18,9 +18,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Ported from MWProtocolLayerTests.swift. Where the Swift tests need fixed
- * sleeps / poll loops to let waiters park, `runCurrent()` on the virtual
- * scheduler makes the same sequencing deterministic.
+ * Protocol-router behavior: command/response pairing, waiter parking, and
+ * notification routing. `runCurrent()` on the virtual scheduler makes the
+ * sequencing deterministic instead of fixed sleeps or poll loops.
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class) // runCurrent
 class ProtocolRouterTest {

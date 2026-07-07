@@ -3,8 +3,7 @@ package com.mbientlab.metawear.persistence
 import kotlinx.datetime.Instant
 
 /**
- * An immutable value-type snapshot of a [SessionRecord]. Port of
- * `MWSessionSnapshot` (Swift).
+ * An immutable value-type snapshot of a [SessionRecord].
  *
  * Returned from [PersistenceStore] fetch methods so callers can work with
  * session metadata without holding a reference to the database entity.

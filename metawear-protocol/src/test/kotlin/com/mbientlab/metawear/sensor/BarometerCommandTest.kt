@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-// Ported from MWModuleCommandTests.swift — barometer suites. Reference vectors
+// Barometer command byte-layout tests. Reference vectors
 // from MetaWear-SDK-Cpp/test/test_barometer_bmp280.py and
 // barometer_bosch_base.py. All bytes verified against the C++ `BoschBaroConfig`
 // bitfield in barometer_bosch.cpp.
@@ -153,7 +153,7 @@ class BarometerCommandTest {
     }
 }
 
-// Ported from MWModuleCommandTests.swift — "Barometer Data Handler" suite.
+// Barometer data-handler tests.
 // Reference vectors from MetaWear-SDK-Cpp/test/barometer_bosch_base.py.
 
 class BarometerDataHandlerTest {

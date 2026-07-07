@@ -3,8 +3,6 @@ package com.mbientlab.metawear.model
 import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.PacketParser
 
-// Port of the MWAnonymousSignalBuilder half of MWAnonymousSignal.swift.
-//
 // Pure (no I/O) reconstruction of `List<AnonymousSignal>` from queried
 // logger + processor state plus the live sensor scale factors. Kept separate
 // from `MetaWearDevice` so it's exhaustively testable.

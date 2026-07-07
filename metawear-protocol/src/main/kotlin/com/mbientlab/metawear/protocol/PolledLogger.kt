@@ -1,12 +1,11 @@
 package com.mbientlab.metawear.protocol
 
-// Port of MWPolledLogger.swift — the polled-loggable protocol plus the
-// polled-logger machinery that pairs a readable with an on-board timer period.
+// The polled-loggable interface plus the polled-logger machinery that pairs
+// a readable with an on-board timer period.
 
 /**
  * A read-only sensor ([Readable]) whose responses can be captured to the
  * board's flash log by pairing a timer + event with a logger subscription.
- * Port of `MWPolledLoggable` (Swift).
  *
  * Conforming types declare how their data payload (the bytes *after* the
  * two-byte BLE `[module, register]` header) should be split into 4-byte
@@ -51,8 +50,7 @@ interface PolledLoggable<out S> : Readable<S> {
 /**
  * Pairs a [PolledLoggable] readable with the on-board timer period at which
  * the firmware should drive the read. Pass to `MetaWearDevice.startLogging` to
- * set up the timer → event → logger chain in one call. Port of
- * `MWPolledLogger` (Swift).
+ * set up the timer → event → logger chain in one call.
  */
 class PolledLogger<out S>(
     val readable: PolledLoggable<S>,
@@ -72,8 +70,7 @@ class PolledLogger<out S>(
  * On-board resource IDs allocated by `startLogging(polledLogger)`. Callers
  * must persist these (or otherwise remember them) so the polled logger can
  * be stopped/recovered across app restarts — the host doesn't poll, the
- * board does, and timer + event survive disconnects. Port of
- * `MWPolledLoggerHandles` (Swift).
+ * board does, and timer + event survive disconnects.
  */
 data class PolledLoggerHandles(
     val timerID: Int,

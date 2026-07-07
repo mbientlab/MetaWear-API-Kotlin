@@ -4,12 +4,12 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
-// Ported from BootloaderInterlockTests.swift — coverage for the pure decision
+// Coverage for the pure decision
 // table behind the bootloader interlock: flash the application directly,
 // stage a bootloader flash first, or refuse because the catalog can't satisfy
 // the requirement.
 
-/** Port of the "Bootloader interlock" suite. */
+/** Tests for [BootloaderInterlock]. */
 class BootloaderInterlockTest {
 
     private fun bootloaderBuild(version: String, requires: String? = null) = FirmwareBuild(

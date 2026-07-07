@@ -3,9 +3,9 @@ package com.mbientlab.metawear.app.core
 import kotlin.math.sqrt
 
 /**
- * Pure math behind the 3D orientation cube — the dependency-free port of
- * `QuaternionRealityView.swift`'s intent: rotate a unit cube by the fusion
- * quaternion and orthographically project it for a 2D canvas. No GL/SceneView.
+ * Pure math behind the 3D orientation cube: rotate a unit cube by the fusion
+ * quaternion and orthographically project it for a 2D canvas — fully
+ * dependency-free. No GL/SceneView.
  */
 object QuaternionCube {
 

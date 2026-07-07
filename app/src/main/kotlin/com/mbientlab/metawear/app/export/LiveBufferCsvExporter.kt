@@ -5,10 +5,10 @@ import com.mbientlab.metawear.app.core.SensorSelection
 import java.util.Locale
 
 /**
- * CSV export for a live-stream capture buffer. Port of
- * `LiveBufferCSVExporter.swift`: header `time,{labels…}`, ISO-8601 timestamps
- * with fractional seconds, floats at up to 6 fractional digits (US locale),
- * and the `accuracy` column (corrected fusion outputs) printed as an integer.
+ * CSV export for a live-stream capture buffer: header `time,{labels…}`,
+ * ISO-8601 timestamps with fractional seconds, floats at up to 6 fractional
+ * digits (US locale), and the `accuracy` column (corrected fusion outputs)
+ * printed as an integer.
  */
 object LiveBufferCsvExporter {
 
@@ -28,6 +28,6 @@ object LiveBufferCsvExporter {
         return lines.joinToString("\n") + "\n"
     }
 
-    /** Up to 6 fractional digits, no trailing-zero stripping (Swift parity). */
+    /** Up to 6 fractional digits, no trailing-zero stripping — the format downstream parsers expect. */
     fun formatFloat(value: Float): String = String.format(Locale.US, "%.6f", value)
 }

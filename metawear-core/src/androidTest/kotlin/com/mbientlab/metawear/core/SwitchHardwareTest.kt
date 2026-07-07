@@ -11,13 +11,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented port of the Swift `SwitchTests` — the mechanical button's
- * state-change stream.
+ * Instrumented smoke test for the mechanical button's state-change stream
+ * against real hardware.
  *
  * The button is event-driven, so sample counts depend on an operator pressing
- * it; like the Swift original, transitions are logged but not asserted. The
- * listen window is shortened from Swift's 10 s to 3 s to keep the bench suite
- * quick — the stream start/stop lifecycle is what's under test.
+ * it; transitions are logged but not asserted. The 3 s listen window keeps
+ * the bench suite quick — the stream start/stop lifecycle is what's under
+ * test.
  */
 @RunWith(AndroidJUnit4::class)
 class SwitchHardwareTest {

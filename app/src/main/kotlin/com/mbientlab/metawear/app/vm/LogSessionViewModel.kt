@@ -23,7 +23,6 @@ import kotlinx.datetime.Instant
 /**
  * On-device logging lifecycle: start loggers for the selected sensors, tick
  * an elapsed clock while recording, stop and mark records ready for download.
- * Port of `LogSessionViewModel.swift`.
  */
 class LogSessionViewModel(private val container: AppContainer) : ViewModel() {
 

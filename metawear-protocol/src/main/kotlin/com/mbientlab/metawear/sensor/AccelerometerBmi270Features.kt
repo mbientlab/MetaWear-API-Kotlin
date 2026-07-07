@@ -7,8 +7,8 @@ import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 
-// Port of the BMI270-only parts of MWAccelerometer.swift:
-// `MWAccelerometerBMI270Steps` and `MWAccelerometerBMI270Features`.
+// The BMI270-only accelerometer features:
+// `AccelerometerBmi270Steps` and `AccelerometerBmi270Features`.
 //
 // Registers (AccelerometerBmi270Register, module 0x03):
 //   0x06 = FEATURE_ENABLE               enable bit in byte 0; disable bit in byte 1
@@ -29,8 +29,7 @@ import com.mbientlab.metawear.protocol.PacketParser
 //   4-7 = step_counter   8 = wrist_gesture   9 = wrist_wakeup
 
 /**
- * On-chip step counter and step detector commands for the BMI270 IMU. Port of
- * `MWAccelerometerBMI270Steps` (Swift).
+ * On-chip step counter and step detector commands for the BMI270 IMU.
  *
  * Unlike the BMI160, both features on the BMI270 deliver notifications on the
  * same register (0x0B); the feature-enable bitmap distinguishes them (0x02 =
@@ -152,8 +151,7 @@ object AccelerometerBmi270Steps {
 }
 
 /**
- * Additional on-chip features unique to the BMI270 IMU. Port of
- * `MWAccelerometerBMI270Features` (Swift).
+ * Additional on-chip features unique to the BMI270 IMU.
  *
  * Covers activity classification, wrist gestures and wakeup, no-motion,
  * significant-motion, and FIFO downsampling. Each feature is enabled by a

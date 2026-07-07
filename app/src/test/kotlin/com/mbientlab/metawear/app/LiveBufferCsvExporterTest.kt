@@ -8,7 +8,7 @@ import kotlinx.datetime.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** Port of the pure parts of `CSVExporterTests.swift` (live-buffer flavor). */
+/** Live-buffer CSV export format. */
 class LiveBufferCsvExporterTest {
 
     private val time = Instant.parse("2024-12-25T14:30:45.123Z")

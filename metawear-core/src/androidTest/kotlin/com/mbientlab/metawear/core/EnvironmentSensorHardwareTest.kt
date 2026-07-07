@@ -15,8 +15,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented port of the Swift `EnvironmentSensorTests` — die temperature,
- * barometric pressure, derived altitude, and (where fitted) relative humidity.
+ * Instrumented environment-sensor smoke tests against real hardware — die
+ * temperature, barometric pressure, derived altitude, and (where fitted)
+ * relative humidity.
  *
  * Value bands are wide on purpose: they catch decode/scale bugs (wrong unit,
  * wrong endianness) rather than judging the weather.
@@ -37,8 +38,8 @@ class EnvironmentSensorHardwareTest {
                 "temperature module absent — skipping",
                 device.moduleInfo(Module.TEMPERATURE)?.isPresent == true,
             )
-            // Channel 0 is always the NRF SoC die, which runs warm (Swift
-            // temperature_nrfDie_returnsPlausibleValue accepts 15–75 °C).
+            // Channel 0 is always the NRF SoC die, which runs warm —
+            // 15–75 °C is the plausible band.
             val celsius = device.read(Thermometer(channel = 0)).value
             assertTrue("NRF die temperature implausible: $celsius °C", celsius in 15f..75f)
         }

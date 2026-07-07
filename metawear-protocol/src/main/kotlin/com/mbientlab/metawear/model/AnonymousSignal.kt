@@ -2,9 +2,9 @@ package com.mbientlab.metawear.model
 
 import com.mbientlab.metawear.protocol.Module
 
-// Port of MWAnonymousSignal.swift (signal value type + scheme identifier
-// builder). The pure reconstruction logic lives in AnonymousSignalBuilder.kt;
-// the device-facing entry point (`createAnonymousDataSignals`) lives in
+// Anonymous-signal value type + scheme identifier builder. The pure
+// reconstruction logic lives in AnonymousSignalBuilder.kt; the device-facing
+// entry point (`createAnonymousDataSignals`) lives in
 // DeviceAnonymousSignals.kt.
 
 /**
@@ -16,7 +16,7 @@ import com.mbientlab.metawear.protocol.Module
  * producing a canonical identifier string plus a typed decode closure.
  *
  * Mirrors `mbl_mw_metawearboard_create_anonymous_datasignals` from the C++
- * MetaWear SDK (test_anonymous_signal.py). Port of `MWAnonymousSignal` (Swift).
+ * MetaWear SDK (test_anonymous_signal.py).
  */
 class AnonymousSignal(
     /**
@@ -57,7 +57,7 @@ class AnonymousSignal(
      */
     val loggerIDs: List<Int> get() = chunks.map { it.id }
 
-    /** A typed sample produced by [decode]. Port of `MWAnonymousSignal.Output`. */
+    /** A typed sample produced by [decode]. */
     sealed class Output {
         data class Cartesian(val value: CartesianFloat) : Output()
         data class Scalar(val value: Float) : Output()
@@ -66,8 +66,8 @@ class AnonymousSignal(
         data class CorrectedCartesian(val value: CorrectedCartesianFloat) : Output()
     }
 
-    // Equality limited to the identifying fields (closures aren't comparable),
-    // mirroring the Swift Equatable conformance.
+    // Value-based equality on the identifying fields only — identifier, root
+    // module, and chunks. The decode closure isn't comparable.
     override fun equals(other: Any?): Boolean = other is AnonymousSignal &&
         other.identifier == identifier &&
         other.rootModule == rootModule &&
@@ -88,11 +88,10 @@ class AnonymousSignal(
  * Scheme identifier builder: internal pure functions that map
  * (root signal + processor chain) → string. Kept separate from
  * `MetaWearDevice` so they can be exhaustively tested without any I/O.
- * Port of `MWAnonymousSignalScheme` (Swift).
  */
 internal object AnonymousSignalScheme {
 
-    /** One processor link in a chain handed to [compose]. Swift models this as a tuple. */
+    /** One processor link in a chain handed to [compose]. */
     data class ProcessorLink(val type: Int, val id: Int, val config: List<Int>)
 
     /**

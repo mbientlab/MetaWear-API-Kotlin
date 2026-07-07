@@ -6,10 +6,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Jetpack Compose port of the SwiftUI MetaWear app (Apps/MetaWear in the Swift
-// repo): scanning, live streaming with ring-buffer decimation, on-device
-// logging + download, session history with CSV export, LED/haptic controls,
-// device settings, firmware updates, and a hardware-free demo mode.
+// Jetpack Compose MetaWear app: scanning, live streaming with ring-buffer
+// decimation, on-device logging + download, session history with CSV export,
+// LED/haptic controls, device settings, firmware updates, and a hardware-free
+// demo mode.
 android {
     namespace = "com.mbientlab.metawear.app"
     compileSdk = 36

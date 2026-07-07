@@ -23,14 +23,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented port of the Swift `SensorFusionTests` quaternion/gravity
- * essentials (SensorFusionQuaternionTests, SensorFusionGravityTests,
- * SensorFusionMultipleOutputTests) — stream sanity for the on-board BSX
- * fusion engine.
+ * Instrumented quaternion/gravity smoke tests against real hardware — stream
+ * sanity for the on-board BSX fusion engine.
  *
  * Self-skips when the board has no sensor-fusion module. Mode picks NDOF
  * (9-DoF) when a magnetometer is present, IMU_PLUS (6-DoF) otherwise; the
- * chip byte comes from the gyro module's implementation (Swift parity).
+ * chip byte comes from the gyro module's implementation, so the right
+ * command bytes go to whichever IMU the board actually carries.
  */
 @RunWith(AndroidJUnit4::class)
 class SensorFusionHardwareTest {
@@ -57,7 +56,7 @@ class SensorFusionHardwareTest {
             val stream = device.startStream(quaternion)
             assertEquals(DeviceState.Streaming, device.state.value)
 
-            // Fusion outputs at ~100 Hz; Swift subscribe_quaternion asserts >= 5 in 2 s.
+            // Fusion outputs at ~100 Hz; expect >= 5 samples in 2 s.
             val samples = collectStreamFor(stream, millis = 2_000)
             device.stopStreaming(quaternion)
 
@@ -76,8 +75,8 @@ class SensorFusionHardwareTest {
             device.stopStreaming(quaternion)
 
             assertTrue("expected > 30 quaternion samples in ~8 s, got ${samples.size}", samples.size > 30)
-            // A rotation quaternion is unit-length; Swift quaternion_unitMagnitude
-            // allows ±5% for fixed-point wire encoding and filter warmup.
+            // A rotation quaternion is unit-length; ±5% tolerance covers
+            // fixed-point wire encoding and filter warmup.
             val q = samples.last()
             val magnitude = sqrt((q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z).toDouble())
             assertTrue(
@@ -98,7 +97,7 @@ class SensorFusionHardwareTest {
 
             assertTrue("expected > 30 gravity samples in ~8 s, got ${samples.size}", samples.size > 30)
             // At rest the gravity vector's magnitude is 1 g regardless of
-            // orientation; Swift gravity_magnitudeNearOneG allows ±0.2 g.
+            // orientation; ±0.2 g tolerance covers filter warmup.
             val g = samples.last()
             val magnitude = sqrt((g.x * g.x + g.y * g.y + g.z * g.z).toDouble())
             assertTrue(

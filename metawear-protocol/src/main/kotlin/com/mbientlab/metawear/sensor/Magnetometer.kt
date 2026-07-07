@@ -8,7 +8,7 @@ import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 
 /**
- * Bosch BMM150 magnetometer (module 0x15). Port of `MWMagnetometer` (Swift).
+ * Bosch BMM150 magnetometer (module 0x15).
  * Streams magnetic field in µT (16 LSB/µT).
  *
  * Construct from a Bosch-recommended [Preset] for typical use, or supply manual
@@ -67,10 +67,10 @@ class Magnetometer private constructor(
     override val packedDataRegister: Int? = 0x09   // PACKED_MAG_DATA (revision >= 1)
     override val loggerKey: String = "magnetic-field"
 
-    // BMM150 cold-boot workaround — matches MetaWear-Swift-Combine-SDK's
-    // `streamSignal`: drop POWER_MODE to SLEEP and let the chip settle before
-    // writing the REPETITIONS / DATA_RATE / DATA_INTERRUPT / POWER_MODE bytes.
-    // Without this, a freshly-powered MetaMotion silently produces zero samples.
+    // BMM150 cold-boot workaround: drop POWER_MODE to SLEEP and let the chip
+    // settle before writing the REPETITIONS / DATA_RATE / DATA_INTERRUPT /
+    // POWER_MODE bytes. Without this, a freshly-powered MetaMotion silently
+    // produces zero samples.
     override val warmupCommands: List<ByteArray>
         get() = listOf(Packet.command(Module.MAGNETOMETER, 0x01, 0x00))  // POWER_MODE = SLEEP
     override val warmupDelayNanos: Long get() = 200_000_000L             // 200 ms
@@ -111,8 +111,8 @@ class Magnetometer private constructor(
      * One-shot configure command for the BMM150. Mirrors C++
      * `mbl_mw_mag_bmm150_configure`: writes both REPETITIONS (register 0x04)
      * and DATA_RATE (register 0x03) without starting / stopping the sensor,
-     * bypassing the [Preset] helper. Both register writes are concatenated in
-     * one byte blob, matching the Swift command's single `Data`.
+     * bypassing the [Preset] helper. Both register writes are concatenated
+     * into a single byte blob.
      */
     class Configure(val xyReps: Int, val zReps: Int, val odr: Odr) : Command {
         override val commandData: ByteArray

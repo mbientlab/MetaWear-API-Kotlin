@@ -17,21 +17,18 @@ import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import no.nordicsemi.android.dfu.DfuBaseService
 
-// Port of MetaWearDevice+DFU.swift — public DFU API extensions on
-// `MetaWearDevice`. Three entry points:
+// Public DFU API extensions on `MetaWearDevice`. Three entry points:
 //
 //   • checkForFirmwareUpdate(...)  — does the catalog have something newer
 //                                    than what's on the board?
-//   • updateFirmware(zipUrl:)      — flash an explicit firmware file.
+//   • updateFirmware(...)          — flash an explicit firmware file.
 //   • updateFirmwareToLatest(...)  — fetch latest from MbientLab CDN and
 //                                    flash it.
 //
 // All update entry points return a cold Flow<DFUProgress> so callers can
 // drive a progress bar from the same collection that catches failure.
 // Cancelling the collecting coroutine aborts the in-flight DFU — Nordic's
-// library handles that cleanly. (Swift returns AsyncThrowingStream and
-// cancels an inner Task on termination; a cold Flow gives the identical
-// contract for free.)
+// library handles that cleanly.
 //
 // Orchestration shape:
 //   1. Verify the device is Idle (no in-flight stream/log/download).
@@ -42,11 +39,10 @@ import no.nordicsemi.android.dfu.DfuBaseService
 //      in-memory device-info / module map is stale. The caller is responsible
 //      for connect()-ing again.
 //
-// Android adaptation: the iOS wrapper constructs (and thereby fully parses)
-// a DFUFirmware object before tearing down BLE; the Android library only
-// parses the archive inside the DFU service, after the handoff. The
-// pre-flight validation here is therefore extension-based (.zip/.bin/.hex) —
-// a corrupt zip still surfaces as DfuFailed from the session, just later.
+// Validation note: the Nordic library only parses the archive inside the DFU
+// service, after the handoff. The pre-flight validation here is therefore
+// extension-based (.zip/.bin/.hex) — a corrupt zip still surfaces as
+// DfuFailed from the session, just later.
 
 private const val TAG = "MetaWearFirmware"
 
@@ -128,9 +124,8 @@ fun MetaWearDevice.updateFirmwareToLatest(
 // ---- Private orchestration ----
 
 /**
- * Driver for `updateFirmware(zipUrl:)`. Suspends inside the collector's
- * coroutine, so every step stays serialised against the collection — the
- * Kotlin analogue of the Swift actor-isolated driver.
+ * Driver for `updateFirmware`. Suspends inside the collector's coroutine, so
+ * every step stays serialised against the collection.
  */
 private suspend fun MetaWearDevice.runFirmwareUpdate(
     context: Context,
@@ -168,7 +163,7 @@ private suspend fun MetaWearDevice.runFirmwareUpdate(
 }
 
 /**
- * Driver for `updateFirmwareToLatest(server:)`. See the public KDoc for the
+ * Driver for `updateFirmwareToLatest`. See the public KDoc for the
  * bootloader-interlock behavior.
  */
 private suspend fun MetaWearDevice.runUpdateToLatest(
@@ -225,9 +220,9 @@ private fun MetaWearDevice.ensureFlashableState() {
 
 /**
  * Send jump-to-bootloader and wait for the BOARD to drop the link as it
- * reboots into MetaBoot. Cancelling the connection from our side raced the
- * reboot on iOS: Nordic would reconnect to a board still running app-mode
- * firmware and fail service discovery with "DFU Service not found".
+ * reboots into MetaBoot. Cancelling the connection from our side races the
+ * reboot: Nordic can reconnect to a board still running app-mode firmware
+ * and fail service discovery with "DFU Service not found".
  * `sendExpectingDisconnect` already waits for the drop and converges local
  * state on Disconnected.
  */
@@ -298,10 +293,9 @@ private val FirmwareException.DfuFailed.isDfuServiceNotFound: Boolean
  * One Nordic DFU attempt. [DfuSession] is single-use, so each pass gets a
  * fresh session.
  *
- * Unlike Swift's AsyncThrowingStream (whose `next()` returns nil on task
- * cancellation instead of throwing), a cancelled Flow collection throws
- * CancellationException — so a cancelled pass can never read as stage
- * success. The trailing ensureActive is belt-and-braces parity.
+ * A cancelled Flow collection throws CancellationException — so a cancelled
+ * pass can never read as stage success. The trailing ensureActive is
+ * belt-and-braces.
  */
 private suspend fun runDfuPass(
     context: Context,
@@ -410,10 +404,10 @@ private suspend fun downloadToLocal(url: URI, fetcher: FirmwareFetcher): File {
 }
 
 /**
- * The extension gate Swift performs by constructing DFUFirmware: `.zip` goes
- * to the Nordic distribution-package path, `.bin`/`.hex` to the raw-image
- * path, anything else is rejected. Content-level parse failures surface later
- * as DfuFailed from the service (see the file-header note).
+ * Extension gate: `.zip` goes to the Nordic distribution-package path,
+ * `.bin`/`.hex` to the raw-image path, anything else is rejected.
+ * Content-level parse failures surface later as DfuFailed from the service
+ * (see the file-header note).
  */
 private fun validateFirmwareFile(file: File) {
     when (file.extension.lowercase()) {

@@ -6,9 +6,8 @@ import com.mbientlab.metawear.model.EulerAngles
 import com.mbientlab.metawear.model.Quaternion
 import kotlin.reflect.KClass
 
-// Port of MWPersistableConformances.swift — one codec object per supported
-// sample type: Float, Boolean, CartesianFloat, CorrectedCartesianFloat,
-// Quaternion, EulerAngles.
+// One codec object per supported sample type: Float, Boolean, CartesianFloat,
+// CorrectedCartesianFloat, Quaternion, EulerAngles.
 
 /** `CartesianFloat` ↔ (x, y, z, 0, 0). */
 object CartesianFloatPersistable : Persistable<CartesianFloat> {

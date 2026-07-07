@@ -20,10 +20,9 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWSwitchHapticTests.swift — switch (module 0x01) and haptic
-// (module 0x08) suites.
+// Switch (module 0x01) and haptic (module 0x08) suites.
 
-/** Ported from the "Switch Commands" suite. */
+/** Switch command byte-layout tests. */
 class SwitchCommandTest {
 
     private val sensor = Switch()
@@ -72,7 +71,7 @@ class SwitchCommandTest {
         assertEquals(false, sensor.parseSample(bytes(0x01, 0x01, 0x02)))
 }
 
-/** Ported from the "Switch — Live Streaming" suite. */
+/** Switch live-streaming tests. */
 class SwitchStreamingTest {
 
     /** Connect against the stub board with the switch module reported present. */
@@ -129,7 +128,7 @@ class SwitchStreamingTest {
     }
 }
 
-/** Ported from the "Haptic Commands" suite. */
+/** Haptic command byte-layout tests. */
 class HapticCommandTest {
 
     @Test fun motor_correctBytes() {

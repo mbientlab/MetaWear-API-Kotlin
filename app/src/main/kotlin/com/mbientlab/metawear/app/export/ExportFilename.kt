@@ -6,7 +6,7 @@ import kotlinx.datetime.toLocalDateTime
 
 /**
  * CSV export filenames: `{device}-{sensor}-{yyyy-MM-dd-HH-mm-ss}.csv`.
- * Port of `ExportFilename.swift` — device names are sanitized to
+ * Device names are sanitized to
  * letters/digits/underscore/dash (empty falls back to "MetaWear") and the
  * timestamp uses dashes only, so the name is safe on every filesystem.
  */

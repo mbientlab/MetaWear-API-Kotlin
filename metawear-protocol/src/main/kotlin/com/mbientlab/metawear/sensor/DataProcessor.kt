@@ -7,7 +7,7 @@ import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 import kotlinx.coroutines.flow.Flow
 
-// Port of the processor half of MWDataProcessor.swift — the config protocol,
+// The processor half of the data-processor surface — the config interface,
 // every processor-stage configuration type, and the MetaWearDevice extension
 // functions that create / stream / remove processors on the board.
 //
@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
 // (test_processor.py, test_dataprocessor.py) — see DataProcessorTest.kt.
 
 /**
- * Configuration for one data processor stage. Port of `MWDataProcessorConfig`.
+ * Configuration for one data processor stage.
  */
 interface DataProcessorConfig {
     /** Wire type ID (from the MetaWear-SDK-Cpp `type_to_id` map). */
@@ -35,8 +35,7 @@ interface DataProcessorConfig {
 }
 
 /**
- * Namespace for all data processor configuration types. Port of the Swift
- * `MWDataProcessor` caseless enum.
+ * Namespace for all data processor configuration types.
  *
  * Each nested class ([Passthrough], [Accumulator], [Counter], [Average],
  * [Rms], [Rss], [Time], [Math], [Sample], [Comparator], [Threshold], [Delta],
@@ -851,9 +850,8 @@ suspend fun MetaWearDevice.createProcessor(
  * Parse `data` according to the processor's output type.
  *
  * All processor flows share one underlying `(0x09, 0x03)` subscription that
- * the device demultiplexes by processor id — the Kotlin port of the Swift
- * `processorDemuxTask` / `processorContinuations` pair — so any number of
- * processors can stream simultaneously. Each flow ends when
+ * the device demultiplexes by processor id, so any number of processors can
+ * stream simultaneously. Each flow ends when
  * [stopStreamingProcessor] or [removeProcessor] is called for its handle,
  * completes cleanly on an intentional [MetaWearDevice.disconnect] (or
  * [removeAllProcessors]), and fails with the underlying error on an
@@ -889,7 +887,7 @@ suspend fun MetaWearDevice.removeProcessor(handle: ProcessorHandle) {
 
 /**
  * Remove all processors from the board. Also tears down the processor demux
- * and finishes every open processor stream (Swift parity).
+ * and finishes every open processor stream cleanly.
  */
 suspend fun MetaWearDevice.removeAllProcessors() {
     terminateAllProcessorStreams()

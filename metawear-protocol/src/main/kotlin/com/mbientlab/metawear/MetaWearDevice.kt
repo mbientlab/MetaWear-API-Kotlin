@@ -48,8 +48,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
-// Port of MetaWearDevice.swift — connection, state machine, streaming,
-// commands, one-shot reads, polling, factory reset, and board-state
+// Core device surface — connection, state machine, streaming, commands,
+// one-shot reads, polling, factory reset, and board-state
 // capture/restore. The logging + download surface (startLogging, downloadLogs,
 // clearLog, logger recovery, …) lives in DeviceLogging.kt as extension
 // functions over the internal hooks exposed below.
@@ -90,11 +90,10 @@ private const val PROCESSOR_STREAM_BUFFER = 256
 
 /**
  * The main entry point for communicating with a single MetaWear sensor.
- * Port of the Swift `MetaWearDevice` actor.
  *
  * Thread-safety: state transitions are guarded by an atomic compare-and-set on
  * the state flow (connection) and a [Mutex] serializing stream start/stop
- * command sequences — the Kotlin translation of actor isolation.
+ * command sequences.
  *
  * Production code usually receives instances from [MetaWearScanner]. Tests
  * inject a `MockBleTransport` and the `runTest` scope for virtual time.
@@ -163,8 +162,7 @@ class MetaWearDevice(
 
     // ---- Data processor demux state ----
     //
-    // Port of the Swift `processorDemuxTask` / `processorContinuations` pair:
-    // one shared `(0x09, 0x03)` router subscription fans NOTIFY packets out to
+    // One shared `(0x09, 0x03)` router subscription fans NOTIFY packets out to
     // per-processor-id channels, so multiple processors stream simultaneously.
     // The channel registry lives here (extension functions can't add state);
     // the streaming API itself stays in sensor/DataProcessor.kt.
@@ -231,9 +229,8 @@ class MetaWearDevice(
      * If the drop doesn't arrive within [timeout], the connection is torn down
      * locally as a fallback so the device still converges on disconnected.
      *
-     * The Swift original races an `AsyncStream` drop signal against a sleep in
-     * a task group; here the one-shot signal is a [CompletableDeferred] awaited
-     * under [withTimeoutOrNull].
+     * The one-shot drop signal is a [CompletableDeferred] awaited under
+     * [withTimeoutOrNull].
      */
     suspend fun sendExpectingDisconnect(command: Command, timeout: Duration = 5.seconds) {
         // Swap the unexpected-disconnect hook for a one-shot signal BEFORE
@@ -536,8 +533,8 @@ class MetaWearDevice(
 
     // ---- Internal hooks for module extension functions ----
     //
-    // Port of the Swift internal MetaWearDevice extension surface that module
-    // files (Timer, Event, Macro, GPIO, Serial, DataProcessor, …) build on.
+    // Internal hooks that the module extension files (Timer, Event, Macro,
+    // GPIO, Serial, DataProcessor, …) build on.
 
     /** Write raw bytes to the command characteristic (write-without-response). */
     internal suspend fun writeRaw(data: ByteArray) = router.write(data)
@@ -578,9 +575,8 @@ class MetaWearDevice(
 
     /**
      * Register a per-processor-id stream with the shared demux, launching the
-     * demux job on first use. Kotlin port of the Swift `ensureProcessorDemux()`
-     * + `processorContinuations[id] = cont` pair. Re-registering an id closes
-     * the previous flow for that id cleanly.
+     * demux job on first use. Re-registering an id closes the previous flow
+     * for that id cleanly.
      */
     internal fun registerProcessorStream(id: Int): Flow<ByteArray> {
         val channel = Channel<ByteArray>(
@@ -605,9 +601,9 @@ class MetaWearDevice(
     /**
      * Finish every processor stream — cleanly when [error] is `null`,
      * exceptionally otherwise — and stop the demux job so the next
-     * [registerProcessorStream] relaunches it. Port of the Swift
-     * `terminateAllProcessorStreams(with:)` (which always fails; the clean
-     * variant covers intentional teardown: disconnect, removeAllProcessors).
+     * [registerProcessorStream] relaunches it. The error variant covers
+     * failure paths; the clean variant covers intentional teardown
+     * (disconnect, removeAllProcessors).
      */
     internal fun terminateAllProcessorStreams(error: Throwable? = null) {
         val channels: List<Channel<ByteArray>>

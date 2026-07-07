@@ -9,8 +9,7 @@ import com.mbientlab.metawear.model.Quaternion
 
 /**
  * Static helpers for parsing raw MetaWear notification bytes into typed values.
- * Direct port of `MWPacketParser` (Swift). All multi-byte values in the MetaWear
- * protocol are little-endian.
+ * All multi-byte values in the MetaWear protocol are little-endian.
  *
  * Bytes are interpreted unsigned via `byte.toInt() and 0xFF`. Return types:
  * signed 16-/32-bit values come back as `Int`, unsigned 32-bit as `Long`.

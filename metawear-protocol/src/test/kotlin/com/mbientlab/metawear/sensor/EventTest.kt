@@ -20,19 +20,19 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Byte-identical stand-ins for LED commands (the LED module is ported in a
+// Byte-identical stand-ins for LED commands (the LED module lives in a
 // separate file); the event machinery only ever sees their commandData bytes.
 private class EventStubCommand(private val data: ByteArray) : Command {
     override val commandData: ByteArray get() = data
 }
 
-/** `MWLED.Play()` → `[0x02, 0x01, 0x01]`. */
+/** LED play → `[0x02, 0x01, 0x01]`. */
 private fun ledPlay(): Command = EventStubCommand(bytes(0x02, 0x01, 0x01))
 
-/** `MWLED.Stop(clearPattern: true)` → `[0x02, 0x02, 0x01]`. */
+/** LED stop, clearing the pattern → `[0x02, 0x02, 0x01]`. */
 private fun ledStopClearing(): Command = EventStubCommand(bytes(0x02, 0x02, 0x01))
 
-/** Ported from MWEventTests.swift. */
+/** Event-module tests: record/end commands and action byte layouts. */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class) // runCurrent
 class EventTest {
 

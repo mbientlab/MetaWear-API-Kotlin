@@ -23,10 +23,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Hardware smoke suite for a nearby MetaMotion S (BMI270) — the instrumented
- * port of the Swift `MetaWearHardwareTests` essentials (`BluetoothSmokeTests`,
- * `DeviceConnectionTests`, `ConnectivityTests`, `ReadTests`, `LEDTests`,
- * `StreamTests`).
+ * Hardware smoke suite for a nearby MetaMotion S (BMI270) — scan, connect,
+ * battery read, LED, and accelerometer streaming essentials against a real
+ * board.
  *
  * Needs a real phone (USB debugging) and a charged board in BLE range; when no
  * board answers the 10 s scan, every test self-skips via a JUnit assumption.
@@ -85,8 +84,7 @@ class HardwareSmokeTest {
             val accelerometer = device.modules[Module.ACCELEROMETER]
             assertNotNull("accelerometer module missing from discovery", accelerometer)
             assertTrue("accelerometer not present", accelerometer!!.isPresent)
-            // Implementation 4 = BMI270 (1 = BMI160) — same check as the Swift
-            // ConnectivityTests.makeAccelerometer_returnsCorrectType.
+            // Implementation 4 = BMI270 (1 = BMI160).
             assertEquals("expected BMI270 implementation", 4, accelerometer.implementation)
         }
 
@@ -105,7 +103,7 @@ class HardwareSmokeTest {
     @Test
     fun led_greenFlash_playsAndStops() =
         HardwareSupport.withConnectedDevice { device ->
-            // Visual check only — assert nothing beyond "no throw" (Swift parity).
+            // Visual check only — assert nothing beyond "no throw".
             device.send(Led.SetPattern(Led.Color.GREEN, LedPattern.flash))
             device.send(Led.Play())
             delay(2_000)

@@ -7,11 +7,10 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-// Room-backed session persistence: port of the Swift MetaWearPersistence
-// SwiftData package. SwiftData -> Room mapping:
-//   @Model MWSessionRecord/MWSampleRecord  -> @Entity data classes
-//   @ModelActor MWPersistenceStore         -> PersistenceStore (suspend DAO calls)
-//   ModelContainer (one per app)           -> PersistenceDatabase (one per app)
+// Room-backed session persistence. Layering:
+//   SessionRecord/SampleRecord  -> Room @Entity data classes
+//   PersistenceStore            -> business logic over suspend DAO calls
+//   PersistenceDatabase         -> the Room database (create one per app)
 android {
     namespace = "com.mbientlab.metawear.persistence"
     compileSdk = 36

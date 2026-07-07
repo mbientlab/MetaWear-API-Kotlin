@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
-/** Ported from MWPacketParserTests.swift — wire-format correctness, no hardware. */
+/** Packet-parser wire-format correctness, no hardware. */
 class PacketParserTest {
 
     // ---- Primitives ----

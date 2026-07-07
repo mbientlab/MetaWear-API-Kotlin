@@ -26,7 +26,7 @@ import com.mbientlab.metawear.app.ui.theme.GlassSurfaceHigh
 import com.mbientlab.metawear.app.ui.theme.GlassTextDim
 import com.mbientlab.metawear.app.ui.theme.GlassWarn
 
-/** Translucent rounded card — the app's take on the Swift "Glass" cards. */
+/** Translucent rounded card — the app's "glass" surface treatment. */
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,

@@ -40,7 +40,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Instant
 
-// Port of the logging half of MetaWearDevice.swift: startLogging/stopLogging
+// The logging half of the device surface: startLogging/stopLogging
 // (streamed and polled), raw + typed + processor-handle downloads, clearLog,
 // flushLogPage, active-logger/processor enumeration, and logger recovery.
 // Implemented as extension functions over the internal hooks in
@@ -87,7 +87,6 @@ internal val DOWNLOAD_INACTIVITY_TIMEOUT: Duration = 60.seconds
 
 /**
  * A single 8-byte on-device flash entry returned during log download.
- * Port of `RawLogEntry` (Swift).
  */
 data class RawLogEntry(
     /** Logger ID that produced this 4-byte chunk. */
@@ -413,9 +412,8 @@ fun <S> MetaWearDevice.recoverLoggers(logger: PolledLogger<S>, active: List<Acti
 /**
  * Download raw log entries from the device. Returns a flow of progress
  * snapshots, each containing all entries received so far. The readout starts
- * immediately (mirroring the Swift `AsyncThrowingStream` semantics) and
- * snapshots buffer until collected; cancelling the collection aborts the
- * readout.
+ * immediately — snapshots buffer until collected; cancelling the collection
+ * aborts the readout.
  *
  * On MMS boards (logging revision ≥ 3) the firmware buffers the active log
  * page in RAM and only commits to flash when the page fills, so a short
@@ -874,8 +872,8 @@ private suspend fun MetaWearDevice.runDownload(
     fun snapshot(): List<RawLogEntry> = synchronized(accumulatorLock) { accumulator.toList() }
 
     // Activity tracking for the inactivity watchdog. A monotonically-
-    // increasing bump counter (instead of the Swift actor's clock reads) keeps
-    // the watchdog correct under both real dispatchers and runTest virtual time.
+    // increasing bump counter (rather than wall-clock reads) keeps the
+    // watchdog correct under both real dispatchers and runTest virtual time.
     var activityCounter = 0L
     fun bump() = synchronized(accumulatorLock) { activityCounter++ }
 
@@ -969,10 +967,10 @@ private suspend fun MetaWearDevice.runDownload(
                 // of register 0x05, or until progress has been stable for a
                 // short window (in case the firmware sent fewer entries than
                 // the cached total — better an incomplete download than a
-                // 2-second tail on every successful run). The Swift original
-                // uses a 2 s wall-clock deadline with a 300 ms stability
-                // window; here the same budget is expressed as 20 ms poll
-                // iterations so it also behaves under runTest virtual time.
+                // 2-second tail on every successful run). The budget — a 2 s
+                // deadline with a 300 ms stability window — is expressed as
+                // 20 ms poll iterations so it also behaves under runTest
+                // virtual time.
                 val target = totalEntries.toInt()
                 var lastCount = snap.size
                 var stableIterations = 0

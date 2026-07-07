@@ -12,9 +12,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Persisted-session history for the active device: list, delete, CSV export.
- * Port of `SessionHistoryViewModel.swift` (the CSV comes straight from the
- * persistence module's `exportTable` — the same `epoch,elapsed_ms,…` layout
- * as the Swift `CSVExporter`).
+ * The CSV comes straight from the persistence module's `exportTable`
+ * (the `epoch,elapsed_ms,…` layout).
  */
 class SessionHistoryViewModel(private val container: AppContainer) : ViewModel() {
 

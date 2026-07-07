@@ -14,7 +14,7 @@ import no.nordicsemi.android.kotlin.ble.scanner.BleScanner
 
 /**
  * Scan-only [BleTransport] backing [com.mbientlab.metawear.MetaWearScanner] on
- * Android — the counterpart of the Swift `MWCentralManager`'s scanning half.
+ * Android.
  *
  * Only [scan] is functional. Connection members throw
  * [UnsupportedOperationException]: per-peripheral connections are handled by
@@ -27,7 +27,7 @@ import no.nordicsemi.android.kotlin.ble.scanner.BleScanner
  * packets, so an OS-level service filter would hide real boards.
  * [com.mbientlab.metawear.MetaWearScanner] matches on the advertised
  * "MetaWear" name prefix instead. The [scan] `services` argument is accepted
- * for interface parity but intentionally not forwarded.
+ * to satisfy the [BleTransport] interface but intentionally not forwarded.
  *
  * ### Permissions
  * The caller must hold `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT` (API 31+) or
@@ -45,9 +45,9 @@ class AndroidBleScanSource(context: Context) : BleTransport {
             .scan(
                 filters = emptyList(), // no service filter — see class KDoc
                 settings = BleScannerSettings(
-                    // Foreground, user-visible discovery — mirrors the Swift
-                    // central's allow-duplicates foreground scan, where RSSI
-                    // and advertised names refresh on every advertisement.
+                    // Foreground, user-visible discovery: report every
+                    // advertisement so RSSI and advertised names refresh
+                    // continuously while the scan list is on screen.
                     scanMode = BleScanMode.SCAN_MODE_LOW_LATENCY,
                     // Bonded-but-silent devices have no advertisement (and no
                     // RSSI); MetaWearScanner only cares about what's on air.
@@ -69,12 +69,12 @@ class AndroidBleScanSource(context: Context) : BleTransport {
             }
 
     /**
-     * Rebuild the iOS-style manufacturer-data blob. CoreBluetooth (which the
-     * Swift SDK and `ScanResult.manufacturerData` consumers were modeled on)
-     * delivers `[companyId LE (2 bytes)] + payload` as one buffer, while
-     * Android splits it into a SparseArray keyed by company id — re-prepend
-     * the id so payloads (e.g. iBeacon frames) parse identically on both
-     * platforms. MetaWear advertisements carry at most one entry.
+     * Rebuild the raw advertisement manufacturer-data blob:
+     * `ScanResult.manufacturerData` consumers expect
+     * `[companyId LE (2 bytes)] + payload` as one buffer, but Android splits
+     * it into a SparseArray keyed by company id — re-prepend the id so
+     * payloads (e.g. iBeacon frames) parse as they appear on air. MetaWear
+     * advertisements carry at most one entry.
      */
     private fun manufacturerBlob(
         data: android.util.SparseArray<no.nordicsemi.android.kotlin.ble.core.data.util.DataByteArray>,

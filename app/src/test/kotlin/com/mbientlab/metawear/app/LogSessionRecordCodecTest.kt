@@ -9,7 +9,7 @@ import kotlinx.datetime.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** Pending-session persistence codec (the Swift record's JSON columns' analogue). */
+/** Pending-session persistence codec round trip. */
 class LogSessionRecordCodecTest {
 
     private val streamed = LogSessionRecord(

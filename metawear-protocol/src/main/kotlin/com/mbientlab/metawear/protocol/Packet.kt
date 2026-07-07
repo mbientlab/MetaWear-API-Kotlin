@@ -2,7 +2,7 @@ package com.mbientlab.metawear.protocol
 
 /**
  * Builds and inspects raw MetaWear command / notification packets.
- * Port of `MWPacket` (Swift). All multi-byte payloads are little-endian.
+ * All multi-byte payloads are little-endian.
  *
  * Payload bytes are passed as `Int` (0..255) and narrowed internally, which
  * avoids the `byteArrayOf(0x80)` "literal does not fit in Byte" friction at

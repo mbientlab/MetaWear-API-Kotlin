@@ -10,13 +10,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented port of the Swift `HapticTests` — one-shot pulses on the
- * haptic driver.
+ * Instrumented haptic-driver smoke tests against real hardware — one-shot
+ * pulses on the haptic driver.
  *
- * Fire-and-forget commands with no readable feedback: like the Swift
- * originals, the assertion is "no throw" (plus a physical buzz if you're
- * holding the board). The delays let each pulse finish before disconnect so
- * the write actually leaves the radio.
+ * Fire-and-forget commands with no readable feedback: the assertion is
+ * "no throw" (plus a physical buzz if you're holding the board). The delays
+ * let each pulse finish before disconnect so the write actually leaves the
+ * radio.
  */
 @RunWith(AndroidJUnit4::class)
 class HapticHardwareTest {

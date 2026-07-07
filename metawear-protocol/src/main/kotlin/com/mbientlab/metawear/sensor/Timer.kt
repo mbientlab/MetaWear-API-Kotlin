@@ -8,7 +8,7 @@ import com.mbientlab.metawear.protocol.Packet
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapNotNull
 
-// Port of MWTimer.swift — on-device timers (module 0x0C).
+// On-device timers (module 0x0C).
 
 /**
  * A handle to an on-device timer created via [MetaWearDevice.createTimer].

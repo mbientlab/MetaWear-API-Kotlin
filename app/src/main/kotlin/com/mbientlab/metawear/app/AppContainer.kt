@@ -16,7 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
- * Long-lived app services — the Kotlin analogue of the Swift `AppStore`.
+ * Long-lived app services shared across ViewModels.
  * One instance per process, owned by [MetaWearApplication]; ViewModels reach
  * it through the factory in `AppViewModel.kt`.
  */

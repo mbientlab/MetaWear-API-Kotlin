@@ -29,7 +29,7 @@ import com.mbientlab.metawear.protocol.Module
 fun availableSensors(modules: Map<Module, ModuleInfo>): List<SensorKey> {
     fun has(module: Module) = modules[module]?.isPresent ?: false
     // Before connect (empty table) everything shows; after connect gate on
-    // hardware presence like the Swift SensorPickerSection.
+    // hardware presence reported by module discovery.
     if (modules.isEmpty()) return SensorKey.entries
     return SensorKey.entries.filter { key ->
         when (key) {

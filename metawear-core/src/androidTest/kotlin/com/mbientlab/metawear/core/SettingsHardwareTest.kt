@@ -11,14 +11,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented port of the Swift `SettingsTests` — battery state, device
- * name, TX power, and advertising, on the settings module (0x11).
+ * Instrumented settings-module (0x11) smoke tests against real hardware —
+ * battery state, device name, TX power, and advertising.
  *
- * Deviation from Swift: settings_setAndRestoreDeviceName verifies the new
- * name over the air via disconnect/rescan cycles (~30 s of scanning); here the
- * name write is exercised command-only and restored to the factory default,
- * keeping the suite bench-friendly. RSSI plausibility rides along as the
- * radio-side sanity check instead.
+ * The device-name write is exercised command-only and restored to the factory
+ * default (verifying it over the air would take disconnect/rescan cycles,
+ * ~30 s of scanning), keeping the suite bench-friendly. RSSI plausibility
+ * rides along as the radio-side sanity check instead.
  */
 @RunWith(AndroidJUnit4::class)
 class SettingsHardwareTest {
@@ -34,8 +33,7 @@ class SettingsHardwareTest {
         HardwareSupport.withConnectedDevice { device ->
             val battery = device.read(Settings.ReadBatteryState()).value
             assertTrue("charge out of range: ${battery.charge} %", battery.charge in 0..100)
-            // Swift battery_readReturnsBatteryState pins a realistic Li-Po
-            // window: 2.5–5.0 V.
+            // 2.5–5.0 V is a realistic Li-Po window.
             assertTrue(
                 "voltage implausible for a Li-Po cell: ${battery.voltage} mV",
                 battery.voltage in 2500..5000,

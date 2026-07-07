@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Ported from MWProtocolRegressionTests.swift — regression guards for real
+ * Regression guards for real
  * bugs: math-processor firmware op codes, LED repeat-count encoding, log
  * chunk reassembly at high ODR (same-tick samples), and MAC-address response
  * length handling.

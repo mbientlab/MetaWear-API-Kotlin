@@ -29,8 +29,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Persisted-session history: newest first, with per-session CSV export
- * (shared via the system sheet) and delete. Combines the Swift app's
- * `SessionHistoryView` + `SessionDetailView` essentials into one screen.
+ * (shared via the system sheet) and delete. Combines the history list and
+ * per-session detail essentials into one screen.
  */
 @Composable
 fun SessionsScreen() {

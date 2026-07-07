@@ -1,7 +1,7 @@
 package com.mbientlab.metawear.protocol
 
 /**
- * MetaWear module opcodes. Port of `MWModule` (Swift).
+ * MetaWear module opcodes.
  *
  * Every command and notification on the wire begins with a module byte; [from]
  * resolves an incoming byte back to its module.

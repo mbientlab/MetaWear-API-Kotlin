@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWDebugTemperatureTests.swift (temperature / thermometer suites
-// only — the debug-module suites live elsewhere). Reference vectors from
+// Temperature / thermometer suites
+// (the debug-module suites live elsewhere). Reference vectors from
 // MetaWear-SDK-Cpp/test/test_multichanneltemperature.py.
 
 class TemperatureChannelTest {

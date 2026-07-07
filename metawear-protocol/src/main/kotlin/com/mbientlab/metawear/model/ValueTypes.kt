@@ -3,7 +3,7 @@ package com.mbientlab.metawear.model
 import com.mbientlab.metawear.protocol.Module
 import kotlinx.datetime.Instant
 
-// Port of MWTypes.swift — the pure value types produced by the SDK.
+// The pure value types produced by the SDK.
 
 /**
  * A value paired with the host wall-clock time it was received at.
@@ -38,7 +38,7 @@ data class Download<out T>(
 
 /**
  * A single logger subscription active on the MetaWear, as returned by
- * `MetaWearDevice.queryActiveLoggers()`. Port of `ActiveLogger` (Swift).
+ * `MetaWearDevice.queryActiveLoggers()`.
  */
 data class ActiveLogger(
     /** The firmware-assigned logger ID (0x00..0x1F). */
@@ -63,7 +63,7 @@ data class ActiveLogger(
 /**
  * A single data processor on-device, as returned by
  * `MetaWearDevice.queryActiveProcessors()`. Used to reconstruct the processor
- * graph behind an anonymous signal. Port of `ActiveProcessor` (Swift).
+ * graph behind an anonymous signal.
  */
 data class ActiveProcessor(
     /** The firmware-assigned processor ID (0x00..0x1F). */

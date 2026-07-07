@@ -6,9 +6,8 @@ import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.Pollable
 
-// Port of the calibration types and commands from MWSensorFusion.swift
-// (MWSensorFusionCalibration / MWSensorFusionCalibrationData /
-// MWSensorFusionWrite*Calibration / MWSensorFusionCalibrationState).
+// Sensor-fusion calibration types and commands: the calibration-state
+// readable, the calibration-data blobs, and the write-calibration commands.
 
 // ---- Calibration state ----
 
@@ -33,7 +32,7 @@ data class SensorFusionCalibration(
 // Mirrors C++ `MblMwCalibrationData`: 10 bytes each for acc / gyro / mag.
 // Only usable on firmware v1.4.3+ / sensor fusion revision >= 2.
 
-/** Throws with the Swift-parity message unless [data] is exactly 10 bytes. */
+/** Throws unless [data] is exactly 10 bytes. */
 private fun requireCalibrationBlob(data: ByteArray, sensor: String) {
     if (data.size != 10) {
         throw MetaWearException.OperationFailed(

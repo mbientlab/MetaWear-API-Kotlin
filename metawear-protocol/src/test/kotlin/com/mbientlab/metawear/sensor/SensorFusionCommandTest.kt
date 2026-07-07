@@ -9,10 +9,8 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
-// Ported from MWModuleCommandTests.swift — the sensor-fusion suites
-// ("Sensor Fusion Commands", "Sensor Fusion Data Handler",
-// "Sensor Fusion Lifecycle (BMI160)", "Sensor Fusion Configure (BMI160/BMI270)",
-// "Sensor Fusion Chip Detection").
+// Sensor-fusion suites: commands, data handler,
+// lifecycle (BMI160), configure (BMI160/BMI270), and chip detection.
 
 /** Assert two command lists match element-wise. */
 private fun assertCommands(expected: List<ByteArray>, actual: List<ByteArray>) {
@@ -20,7 +18,7 @@ private fun assertCommands(expected: List<ByteArray>, actual: List<ByteArray>) {
     expected.zip(actual).forEachIndexed { i, (e, a) -> assertArrayEquals(e, a, "command[$i]") }
 }
 
-/** Ported from "Sensor Fusion Commands". */
+/** Sensor-fusion command byte-layout tests. */
 class SensorFusionCommandTest {
 
     @Test fun quaternion_enableBit() =
@@ -175,8 +173,8 @@ class SensorFusionCommandTest {
         assertArrayEquals(bytes(0x19, 0x0E) + blob, cmd.commandData)
     }
 
-    @Test fun writeCalibration_rejectsWrongLength_withSwiftParityMessage() {
-        // Swift throws MWError.operationFailed("acc calibration data must be 10 bytes; got N").
+    @Test fun writeCalibration_rejectsWrongLength_withExactMessage() {
+        // The error message must be exactly "acc calibration data must be 10 bytes; got N".
         val e = assertThrows(MetaWearException.OperationFailed::class.java) {
             SensorFusionWriteAccCalibration(bytes(0x01, 0x02, 0x03))
         }
@@ -216,7 +214,7 @@ class SensorFusionCommandTest {
 }
 
 /**
- * Ported from "Sensor Fusion Data Handler".
+ * Sensor-fusion data-handler tests.
  * All reference vectors from test_sensor_fusion.py::test_received_data.
  */
 class SensorFusionDataHandlerTest {
@@ -339,7 +337,7 @@ class SensorFusionDataHandlerTest {
 }
 
 /**
- * Ported from "Sensor Fusion Lifecycle (BMI160)".
+ * Sensor-fusion lifecycle tests (BMI160).
  * Reference: MetaWear-SDK-Cpp/test/test_sensor_fusion.py::test_sensor_control.
  * The C++ test asserts that start + stop produces a fixed byte sequence per mode,
  * with the OUTPUT_ENABLE byte (`[0x19, 0x03, mask, 0x00]`) carrying the bit for
@@ -563,7 +561,7 @@ class SensorFusionLifecycleBmi160Test {
 }
 
 /**
- * Ported from "Sensor Fusion Configure (BMI160)".
+ * Sensor-fusion configure tests (BMI160).
  * Reference: MetaWear-SDK-Cpp/test/test_sensor_fusion_config.py::test_configure_*.
  * `mbl_mw_sensor_fusion_write_config` issues fusion-config + underlying configs
  * per (mode, chip). Our SDK exposes this via `configureCommands`, which the
@@ -718,7 +716,7 @@ class SensorFusionConfigureBmi160Test {
         )
     }
 
-    // SLEEP — fusion config only (parity with C++ — no underlying writes)
+    // SLEEP — fusion config only (matches the C++ SDK — no underlying writes)
 
     @Test fun sleep_writesOnlyFusionConfig() {
         val s = SensorFusionQuaternion(
@@ -735,7 +733,7 @@ class SensorFusionConfigureBmi160Test {
 }
 
 /**
- * Ported from "Sensor Fusion Configure (BMI270)".
+ * Sensor-fusion configure tests (BMI270).
  * On BMI270 boards the gyro module reports `implementation = 1`, the acc reports
  * `implementation = 4`. Our SDK takes a `chip` parameter on each fusion signal.
  * The acc config byte differs from BMI160: bit[7]=filter_perf=1 for ODR>=12.5 Hz
@@ -819,7 +817,7 @@ class SensorFusionConfigureBmi270Test {
     }
 }
 
-/** Ported from "Sensor Fusion Chip Detection". */
+/** Sensor-fusion chip-detection tests. */
 class SensorFusionChipTest {
 
     @Test fun chip_fromGyroImpl_matchesCpp() {

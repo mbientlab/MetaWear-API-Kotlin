@@ -9,7 +9,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
-// Port of MWMiscReadables.swift — small logging/settings readables that don't
+// Small logging/settings readables that don't
 // warrant their own file. Each implements `Pollable` (hence `Readable`) so it
 // composes with the generic `device.read(...)` helper and `device.poll(...)`:
 //
@@ -20,7 +20,7 @@ import kotlinx.datetime.Instant
 // ```
 
 /**
- * One-shot read of the on-device log entry count. Port of `MWLogLength`.
+ * One-shot read of the on-device log entry count.
  *
  * Mirrors `mbl_mw_logging_get_length` in the C++ SDK. The firmware responds
  * with the number of log entries currently stored on-device; each entry is
@@ -48,8 +48,7 @@ class LogLength : Pollable<Long> {
 }
 
 /**
- * One-shot read of the board's "last reset" wall-clock time. Port of
- * `MWLastResetTime`.
+ * One-shot read of the board's "last reset" wall-clock time.
  *
  * Mirrors the firmware's LOGGING_TIME register (0x04). The board responds with
  * its current tick counter plus a reset-UID byte; dividing the tick by the
@@ -114,14 +113,12 @@ class LastResetTime : Pollable<LastResetTime.Reading> {
 }
 
 /**
- * One-shot read of the board's MAC address. Parity port of `MWMACAddress`.
+ * One-shot read of the board's MAC address.
  *
- * Exactly like the Swift original — where `MWMACAddress` is a typealias for
- * `MWSettings.ReadMacAddress` — this is an alias for the canonical
- * [Settings.ReadMacAddress] readable (settings register 0x0B), kept so
- * existing `device.read(MacAddress())` callers keep compiling. Polling an
- * identity read is a harmless no-op way to verify the link is alive, so the
- * canonical type is [Pollable] like the Swift original.
+ * An alias for the canonical [Settings.ReadMacAddress] readable (settings
+ * register 0x0B), kept so existing `device.read(MacAddress())` callers keep
+ * compiling. Polling an identity read is a harmless no-op way to verify the
+ * link is alive, so the canonical type is [Pollable].
  *
  * Request:  `[0x11, 0x8B]`
  * Response: `[0x11, 0x8B, mac[6 LE]]` (or 7 payload bytes with a leading

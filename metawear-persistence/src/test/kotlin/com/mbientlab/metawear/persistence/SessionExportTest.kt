@@ -8,7 +8,7 @@ import kotlinx.datetime.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** Port of the "MWPersistenceStore — CSV export" suite (MWSessionExportTests.swift). */
+/** CSV export from [PersistenceStore.exportTable]. */
 class SessionExportTest {
 
     @Test
@@ -101,7 +101,7 @@ class SessionExportTest {
         )
         val table = store.exportTable(sessionID = snap.id, persistable = CartesianFloatPersistable)
         val epochField = table.rows[0][0]
-        // Parseable ISO 8601 (the Swift test's ISO8601DateFormatter check) …
+        // Parseable ISO-8601 …
         val parsed = Instant.parse(epochField)
         // … and byte-exact for a known instant.
         assertEquals(date, parsed)

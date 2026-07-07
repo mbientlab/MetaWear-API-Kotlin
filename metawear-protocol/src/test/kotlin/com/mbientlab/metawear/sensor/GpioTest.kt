@@ -19,8 +19,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Ported from the GPIO suites of MWGPIOLEDTests.swift (the LED suites live
- * with the LED module port).
+ * GPIO module tests (the LED suites live with the LED module tests).
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class) // runCurrent
 class GpioTest {

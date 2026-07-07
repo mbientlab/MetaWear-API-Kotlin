@@ -2,13 +2,13 @@ package com.mbientlab.metawear.sensor
 
 import com.mbientlab.metawear.protocol.Module
 
-// Port of the signal half of MWDataProcessor.swift — the `MWSignal` protocol,
+// The signal half of the data-processor surface — the `Signal` interface,
 // the known input signals, and the processor handle returned by
 // `createProcessor` (which is itself a signal, enabling processor chaining).
 
 /**
  * Any data source that can feed a data processor: a sensor signal or a
- * processor's output. Port of `MWSignal` (Swift).
+ * processor's output.
  *
  * The [sourceConfigByte] encodes the total sample length and byte offset into
  * the single byte that the board expects at position 5 of every ADD command:
@@ -42,7 +42,7 @@ interface Signal {
     /** Total bytes per sample = nChannels × channelSize. */
     val dataLength: Int get() = nChannels * channelSize
 
-    /** source_config byte for ADD commands (0..255, truncated like Swift's UInt8). */
+    /** source_config byte for ADD commands, masked to a single byte (0..255). */
     val sourceConfigByte: Int get() = (((dataLength - 1) shl 5) or offset) and 0xFF
 }
 
@@ -200,7 +200,7 @@ class SensorFusionLinearAccelerationSignal : Signal {
 }
 
 /**
- * Identifies a data processor created on the board. Port of `MWProcessorHandle`.
+ * Identifies a data processor created on the board.
  *
  * A handle conforms to [Signal] so it can be passed directly as the `source`
  * argument of `createProcessor(config, source)` to chain processors.

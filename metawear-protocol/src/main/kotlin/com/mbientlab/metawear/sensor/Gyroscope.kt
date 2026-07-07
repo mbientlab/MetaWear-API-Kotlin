@@ -8,8 +8,6 @@ import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 import kotlin.math.abs
 
-// Port of MWGyroscope.swift.
-//
 // Gyroscope register opcodes (module 0x13) — names follow the C++ SDK headers
 // (`GyroBosch.h`, `GyroBmi270.h`). The basic configure / enable / start / stop
 // map is identical to the accelerometer module (registers 0x01–0x03); only the
@@ -25,8 +23,8 @@ import kotlin.math.abs
 //   0x07 BMI160: PACKED_GYRO_DATA (3 samples per packet). BMI270 uses 0x05.
 
 /**
- * Bosch BMI160 gyroscope (MetaMotion R / RL). Port of `MWGyroscopeBMI160`
- * (Swift). Streams angular velocity (degrees / second) from module 0x13.
+ * Bosch BMI160 gyroscope (MetaMotion R / RL).
+ * Streams angular velocity (degrees / second) from module 0x13.
  */
 class GyroscopeBmi160(
     val odr: Odr = Odr.HZ100,
@@ -65,7 +63,7 @@ class GyroscopeBmi160(
 }
 
 /**
- * Bosch BMI270 gyroscope (MetaMotion S). Port of `MWGyroscopeBMI270` (Swift).
+ * Bosch BMI270 gyroscope (MetaMotion S).
  * Shares the `gyro_conf` encoding with the BMI160, but uses a different data
  * register and adds the BMI270-only [Offsets] calibration command.
  */
@@ -114,7 +112,6 @@ class GyroscopeBmi270(
 
 /**
  * Type-erased gyroscope chosen at runtime from the board's reported chip ID.
- * Port of the `MWGyroscope` enum (Swift).
  *
  * Use [make] to construct one from the implementation byte returned during
  * module discovery; the requested ODR / range are snapped to the nearest value

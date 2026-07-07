@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Flash-log download orchestration. Port of `DownloadViewModel.swift`: one
+ * Flash-log download orchestration: one
  * raw drain of the board's circular log, then per-record typed decode + save
  * (downloading per sensor would re-trigger the readout and find the log
  * already empty), then a single `clearLog()` once everything decoded.

@@ -6,13 +6,11 @@ import com.mbientlab.metawear.model.LoggedSample
 import java.util.UUID
 
 /**
- * Store for persisted MetaWear log sessions. Port of the `MWPersistenceStore`
- * SwiftData `@ModelActor` actor.
+ * Store for persisted MetaWear log sessions.
  *
- * Where the Swift actor pins a `ModelContext` to its serial executor, this
- * class delegates to Room's suspend DAO, which runs queries on Room's own
- * dispatcher — so instances are safe to call from any coroutine context and
- * all methods are `suspend`, matching the Swift store's async surface.
+ * All methods are `suspend` and delegate to Room's suspend DAO, which runs
+ * queries on Room's own dispatcher and serializes writes internally — so
+ * instances are safe to call from any coroutine context.
  *
  * ### Typical usage
  * ```kotlin

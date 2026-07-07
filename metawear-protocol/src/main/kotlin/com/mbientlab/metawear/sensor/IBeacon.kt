@@ -5,11 +5,10 @@ import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 import java.util.UUID
 
-// Port of MWiBeacon.swift — iBeacon module (0x07).
+// iBeacon module (0x07).
 
 /**
  * Commands for configuring the MetaWear as a Bluetooth iBeacon advertiser.
- * Port of `MWiBeacon` (Swift).
  *
  * Typical usage:
  * ```kotlin

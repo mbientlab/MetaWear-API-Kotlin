@@ -7,11 +7,10 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 /**
- * The Room database for the full MetaWear persistence schema. Port of the
- * `ModelContainer` returned by `MWPersistenceStore.makeContainer()` (Swift).
+ * The Room database for the full MetaWear persistence schema.
  *
- * Matching the Swift "one container per app" guidance, create one database per
- * app process and share it between [PersistenceStore] instances:
+ * Create one database per app process and share it between [PersistenceStore]
+ * instances:
  *
  * ```kotlin
  * // App startup — create the database once
@@ -50,8 +49,8 @@ abstract class PersistenceDatabase : RoomDatabase() {
                 .build()
 
         /**
-         * Create an in-memory database for tests and previews — the analogue
-         * of Swift's `makeContainer(inMemory: true)`.
+         * Create an in-memory database for tests and previews. Contents are
+         * discarded when the process exits.
          */
         fun createInMemory(context: Context): PersistenceDatabase =
             Room.inMemoryDatabaseBuilder(context.applicationContext, PersistenceDatabase::class.java)

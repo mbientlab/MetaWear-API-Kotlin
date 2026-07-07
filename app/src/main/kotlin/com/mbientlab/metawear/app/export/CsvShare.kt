@@ -7,8 +7,7 @@ import java.io.File
 
 /**
  * Writes a CSV into the app's cache and hands it to the system share sheet
- * (`ACTION_SEND` through the manifest-declared FileProvider) — the Android
- * analogue of the Swift app's `ShareLink` export.
+ * (`ACTION_SEND` through the manifest-declared FileProvider).
  */
 object CsvShare {
 

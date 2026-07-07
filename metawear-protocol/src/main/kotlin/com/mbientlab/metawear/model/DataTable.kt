@@ -5,40 +5,37 @@ import java.util.Locale
 import kotlin.reflect.KClass
 import kotlinx.datetime.Instant
 
-// Port of MWDataTable.swift — the CSV export table.
+// The CSV export table.
 //
 // CSV byte-stability matters: tools that consume our exports parse the columns
 // numerically, and a locale-dependent decimal separator (`1,000000` instead of
-// `1.000000`) would silently corrupt downstream analysis. The Swift original
-// pins its number formatting to the POSIX locale with no thousands grouping;
-// here `Locale.US` with `String.format` gives the same byte-for-byte output
-// regardless of the host's region settings.
+// `1.000000`) would silently corrupt downstream analysis. `Locale.US` with
+// `String.format` pins the number formatting (period decimal separator, no
+// thousands grouping) so output is byte-for-byte identical regardless of the
+// host's region settings.
 
-/** Six-decimal CSV format for `Float`: matches the legacy `String(format: "%.6f", _)` output. */
+/** Six-decimal CSV format for `Float` (e.g. `1.000000`). */
 private fun csv6(value: Float): String = String.format(Locale.US, "%.6f", value)
 
-/** Four-decimal CSV format for `Float`: matches the legacy `String(format: "%.4f", _)` output. */
+/** Four-decimal CSV format for `Float` (e.g. `1.0000`). */
 private fun csv4(value: Float): String = String.format(Locale.US, "%.4f", value)
 
-/** Three-decimal CSV format for `Double`: matches the legacy `String(format: "%.3f", _)` output. */
+/** Three-decimal CSV format for `Double` (e.g. `1.000`). */
 private fun csv3(value: Double): String = String.format(Locale.US, "%.3f", value)
 
 /**
- * ISO 8601 timestamp with second precision and a `Z` designator — the output
- * shape of Swift's `ISO8601DateFormatter` (e.g. `1970-01-01T00:16:40Z`).
- * Sub-second components are truncated, matching the Swift formatter.
+ * ISO 8601 UTC timestamp with whole-second precision and a `Z` designator
+ * (e.g. `1970-01-01T00:16:40Z`); sub-second components are truncated.
  */
 private fun iso8601(instant: Instant): String =
     Instant.fromEpochSeconds(instant.epochSeconds).toString()
 
 /**
- * CSV column mapping for the sample types the SDK produces. Port of the
- * `MWDataConvertible` protocol (Swift).
+ * CSV column mapping for the sample types the SDK produces.
  *
- * Swift expresses this as retroactive protocol conformances (including on
- * `Float` and `Bool`, which Kotlin cannot extend with new supertypes), so the
- * static `columnHeaders` / instance `columnValues` requirements become
- * when-on-type dispatch here.
+ * Built-in types (`Float`, `Boolean`) can't be given new supertypes, so the
+ * mapping is centralized when-on-type dispatch rather than an interface each
+ * sample type implements.
  */
 object DataConvertible {
 
@@ -84,8 +81,7 @@ object DataConvertible {
 }
 
 /**
- * A named table of string rows suitable for CSV export. Port of `MWDataTable`
- * (Swift).
+ * A named table of string rows suitable for CSV export.
  */
 data class DataTable(
     /** Logical name for the table (typically the sensor key, e.g. `"acceleration"`). */
@@ -130,9 +126,8 @@ data class DataTable(
          * Build a table from typed logged samples.
          * Columns: epoch (ISO 8601), elapsed_ms, then sensor-specific columns.
          *
-         * The explicit [sampleType] parameter carries what Swift gets from the
-         * static `S.columnHeaders` requirement — it lets an empty sample list
-         * still produce the correct header row. Prefer the reified overload.
+         * The explicit [sampleType] parameter lets an empty sample list still
+         * produce the correct header row. Prefer the reified overload.
          */
         fun <S : Any> fromLogged(
             samples: List<LoggedSample<S>>,

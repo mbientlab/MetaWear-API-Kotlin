@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWDataProcessorTests.swift. All expected byte sequences are
+// Data-processor suites. All expected byte sequences are
 // taken directly from MetaWear-SDK-Cpp/test/:
 //   test_processor.py     — test_freefall, test_led_controller
 //   test_dataprocessor.py — individual processor config tests
@@ -323,7 +323,7 @@ class DataProcessorPassthroughTest {
 }
 
 // ---- Accumulator ----
-// Not covered by a C++ reference vector in the Swift suite; the expected bytes
+// Not covered by a C++ reference vector; the expected bytes
 // below are derived from the documented AccumulatorConfig layout:
 //   {output_size-1 : 2, input_size-1 : 2, mode=0 : 3}
 

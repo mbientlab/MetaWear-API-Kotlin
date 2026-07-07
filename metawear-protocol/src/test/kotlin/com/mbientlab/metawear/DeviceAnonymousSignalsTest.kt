@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Ported from MWAnonymousSignalTests.swift — the device-level suites:
+// Device-level anonymous-signal suites:
 // queryActiveProcessors (Tranche A) and the test_anonymous_signal.py port
 // (Tranche D). The pure scheme suites live in model/AnonymousSignalTest.kt.
 //
@@ -25,7 +25,7 @@ class DeviceAnonymousSignalsTest {
     private val mac = "AA:BB:CC:DD:EE:FF"
 
     /**
-     * Modules the Swift fixture's stub board reports present: accel,
+     * Modules the stub board reports present: accel,
      * temperature, logging, data-processor, gyro, fusion.
      */
     private val presentModules = setOf(0x03, 0x04, 0x0B, 0x09, 0x13, 0x19)
@@ -41,10 +41,10 @@ class DeviceAnonymousSignalsTest {
 
     /**
      * Scripted responder: answers logger, processor, and range queries with
-     * pre-declared byte vectors. Port of the Swift `ScriptedResponder` actor,
-     * which itself mirrors the Python `AnonymousSignalBase.commandLogger` +
-     * `schedule_response` pattern. Response payloads are stored without the
-     * 2-byte `[module, 0x82]` header, matching the Swift fixture.
+     * pre-declared byte vectors. Mirrors the Python
+     * `AnonymousSignalBase.commandLogger` + `schedule_response` pattern.
+     * Response payloads are stored without the 2-byte `[module, 0x82]`
+     * header.
      */
     private class ScriptedReplies(
         var accelRange: Int = 0x08, // BMI160 ±8g

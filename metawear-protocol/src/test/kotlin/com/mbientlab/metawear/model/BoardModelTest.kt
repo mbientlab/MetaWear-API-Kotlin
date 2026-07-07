@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** Ported from MWModelTests.swift — model-number decode + hardware-revision rules. */
+/** Model-number decode + hardware-revision rules. */
 class BoardModelTest {
 
     @Test fun model5_isMotionRL() {

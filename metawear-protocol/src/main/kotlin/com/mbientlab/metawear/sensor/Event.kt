@@ -6,7 +6,7 @@ import com.mbientlab.metawear.protocol.Command
 import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 
-// Port of MWEvent.swift — on-device event bindings (module 0x0A).
+// On-device event bindings (module 0x0A).
 
 /**
  * A handle to an on-device event binding created via [MetaWearDevice.createEvent].

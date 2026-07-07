@@ -7,8 +7,8 @@ import androidx.room.Query
 import androidx.room.Transaction
 
 /**
- * A session row joined with its sample count — the Room analogue of the Swift
- * store's `relationshipKeyPathsForPrefetching = [\.samples]` + `samples.count`.
+ * A session row joined with its sample count, so listing sessions does not
+ * require loading their samples.
  */
 data class SessionWithCount(
     @Embedded val session: SessionRecord,

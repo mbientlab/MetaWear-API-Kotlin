@@ -27,14 +27,13 @@ import no.nordicsemi.android.kotlin.ble.core.data.util.DataByteArray
 
 /**
  * [BleTransport] for a **single** MetaWear peripheral, backed by the Nordic
- * Kotlin BLE Library (`no.nordicsemi.android.kotlin.ble`). The Android
- * counterpart of the Swift `CoreBluetoothPeripheralTransport` actor.
+ * Kotlin BLE Library (`no.nordicsemi.android.kotlin.ble`).
  *
  * Production code obtains instances indirectly through
  * [AndroidMetaWear.scanner]; nothing here scans — see the class-level docs on
  * [AndroidBleScanSource] for the scanning half of the seam.
  *
- * ### Connect flow (mirrors the Swift transport)
+ * ### Connect flow
  * 1. GATT connect with `autoConnect = false`, bounded retry to absorb
  *    Android's transient status-133 (`GATT_ERROR`) failures.
  * 2. Full service discovery; every characteristic of every service is indexed
@@ -47,8 +46,8 @@ import no.nordicsemi.android.kotlin.ble.core.data.util.DataByteArray
  *    notification and firmware revisions past 1.4 pad further; 247 is the
  *    Nordic-recommended maximum and comfortably fits every MetaWear packet.
  * 4. Notifications enabled on the MetaWear notify characteristic
- *    (`326A9006-…`), matching the Swift central's connect sequence, so the
- *    protocol router can subscribe without an extra descriptor round-trip.
+ *    (`326A9006-…`), so the protocol router can subscribe without an extra
+ *    descriptor round-trip.
  *
  * ### Serialization
  * Android allows one outstanding GATT operation per connection. The Nordic
@@ -113,8 +112,8 @@ class NordicBleTransport(
 
         val gatt = connectWithRetry()
         try {
-            // Order mirrors the Swift transport: discovery first, then MTU,
-            // then notify enable — see the class KDoc for the rationale.
+            // Order matters: discovery first, then MTU, then notify enable —
+            // see the class KDoc for the rationale.
             val services = gatt.discoverServices()
             val characteristics = buildMap {
                 for (service in services.services) {
@@ -221,8 +220,8 @@ class NordicBleTransport(
         }
         // Nordic suspends until the stack confirms the write (both types fire
         // onCharacteristicWrite once the local buffer accepts the packet), so
-        // write-without-response gets back-pressure for free — the Kotlin
-        // equivalent of the Swift transport's canSendWriteWithoutResponse queue.
+        // write-without-response gets back-pressure for free: the next packet
+        // is not sent until the stack has room for it.
         characteristicFor(characteristic).write(DataByteArray(data), writeType)
     }
 
@@ -273,11 +272,11 @@ class NordicBleTransport(
         const val DISCONNECT_TIMEOUT_MS = 5_000L
 
         /**
-         * Requested ATT MTU. 247 (244-byte payload) is the nRF52 maximum and
-         * the value both the official Android SDK and the Swift SDK request;
-         * anything ≥ 23+... that fits a packed 3-sample accelerometer packet
-         * (2-byte header + 18 bytes of samples) works, but bigger MTUs also
-         * speed up log downloads considerably.
+         * Requested ATT MTU. Android must explicitly request a larger MTU;
+         * 247 (244-byte payload) is the nRF52 maximum. Anything that fits a
+         * packed 3-sample accelerometer packet (2-byte header + 18 bytes of
+         * samples) works, but bigger MTUs also speed up log downloads
+         * considerably.
          */
         const val REQUESTED_MTU = 247
     }

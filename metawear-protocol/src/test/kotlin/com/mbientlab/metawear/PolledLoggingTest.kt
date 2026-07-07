@@ -18,11 +18,11 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Coverage for the MWPolledLogger.swift port: the timer → event → logger
+// Polled-logging coverage: the timer → event → logger
 // chain built by `startLogging(PolledLogger)`, its teardown, the
 // PolledLoggable conformances (Thermometer, Humidity), and polled-logger
-// recovery + download. The Swift repo has no unit suite for this surface
-// (hardware-verified there); these tests lock the documented wire protocol in.
+// recovery + download. This surface is otherwise only verified against
+// hardware; these tests lock the documented wire protocol in.
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class PolledLoggingTest {

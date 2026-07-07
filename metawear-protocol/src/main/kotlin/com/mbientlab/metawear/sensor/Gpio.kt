@@ -8,7 +8,7 @@ import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 import com.mbientlab.metawear.protocol.Streamable
 
-// Port of MWGPIO.swift — GPIO module (0x05).
+// GPIO module (0x05).
 
 /**
  * Commands and streaming types for the MetaWear GPIO module.

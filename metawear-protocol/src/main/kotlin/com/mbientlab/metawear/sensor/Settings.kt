@@ -10,10 +10,10 @@ import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 import com.mbientlab.metawear.protocol.Pollable
 
-// Port of MWSettings.swift — settings module (0x11).
+// Settings module (0x11).
 
 /**
- * Commands for the MetaWear settings module. Port of `MWSettings` (Swift).
+ * Commands for the MetaWear settings module.
  * Controls device name, advertising, TX power, and connection parameters.
  */
 object Settings {
@@ -38,8 +38,6 @@ object Settings {
      * - non-empty
      * - ≤ [MAX_DEVICE_NAME_LENGTH] ASCII bytes
      * - only contains characters in [VALID_DEVICE_NAME_CHARACTERS]
-     *
-     * Matches `MetaWear.isNameValid` from the reference Combine SDK.
      */
     fun isNameValid(proposed: String): Boolean {
         if (proposed.isEmpty()) return false
@@ -239,8 +237,8 @@ object Settings {
     // `[0x11, 0x8C, charge, volt_lo, volt_hi]`.
     //
     // The C++ `MblMwDataSignal` constructor enables the SILENT bit (0x40) on
-    // readable signals at construction, but the production read path in the
-    // Combine SDK calls `mbl_mw_datasignal_subscribe` *before*
+    // readable signals at construction, but the reference C++ SDK's production
+    // read path calls `mbl_mw_datasignal_subscribe` *before*
     // `mbl_mw_datasignal_read`, and `subscribe()` on a readable signal clears
     // the silent bit. So the actual wire byte that ships in production is
     // `0x8C`, not `0xCC` — the `[0x11, 0xcc]` in
