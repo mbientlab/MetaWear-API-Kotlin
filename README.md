@@ -10,9 +10,10 @@ transport and app layers are Android-specific.
 ```
 metawear-android/
 ├── metawear-protocol/   ← pure Kotlin/JVM. Packet builder, parser, value types,
-│                          sensor interfaces + configs, BleTransport seam + mock.
-│                          Fast JVM unit tests (Steps 1–2 of the build plan).
-├── metawear-core/       ← (planned) Scanner, Device, Nordic-backed BleTransport
+│                          sensor interfaces + configs, BleTransport seam + mock,
+│                          protocol router, MetaWearDevice, MetaWearScanner.
+│                          Fast JVM unit tests (Steps 1–3 of the build plan).
+├── metawear-core/       ← (planned) Nordic-backed BleTransport, Android wiring
 ├── metawear-persistence/← (planned) Room session storage
 ├── metawear-firmware/   ← (planned) Nordic Android DFU
 └── app/                 ← (planned) Jetpack Compose app
@@ -20,6 +21,8 @@ metawear-android/
 
 Only `:metawear-protocol` exists today — it is the foundation everything else
 builds on, ported test-first to lock wire-format correctness before any BLE code.
+The full vertical slice — scan → connect → `startStream(accelerometer)` →
+`Flow<Timestamped<CartesianFloat>>` — runs end-to-end against `MockBleTransport`.
 
 ## What's in `:metawear-protocol`
 
@@ -36,6 +39,9 @@ builds on, ported test-first to lock wire-format correctness before any BLE code
 | `transport.{BleTransport, ScanResult, WriteType}` | `BLETransport.swift` |
 | `transport.MockBleTransport` | `MockBLETransport.swift` |
 | `transport.Uuids` | `MWUUIDs.swift` |
+| `protocol.ProtocolRouter` | `MWProtocolLayer.swift` |
+| `MetaWearDevice`, `DeviceState` | `MetaWearDevice.swift` (connection, state machine, streaming, send/read/poll slice) |
+| `MetaWearScanner` | `MetaWearScanner.swift` |
 
 The transport *interface* lives here (it is pure JVM: `java.util.UUID`,
 `ByteArray`, `Flow`) so the upcoming protocol router and device layer stay
@@ -68,6 +74,17 @@ Opens directly in Android Studio; the Kotlin toolchain targets JDK 21.
   (`ScanResult`, `MockBleTransport.Write`) override `equals` with `contentEquals`.
 - Bytes are built from `Int` literals via a `bytes(…)` test helper to avoid the
   `byteArrayOf(0x80)` "does not fit in Byte" compile error.
-- `MockBleTransport` notification flows are backed by unbounded `Channel`s;
-  `close(cause)` reproduces `AsyncThrowingStream`'s buffered-then-fail delivery
-  on simulated disconnects.
+- `MockBleTransport` notification flows deliver termination **in-band** (as
+  sealed events through the channel) rather than via `Channel.close(cause)`:
+  closing a channel does not wake a receiver parked on a coroutines-test
+  `backgroundScope` dispatcher, while `trySend` does. In-band markers also
+  reproduce `AsyncThrowingStream`'s buffered-then-fail delivery exactly.
+- In tests, prefer `runCurrent()` (or suspending the test body) over
+  `advanceUntilIdle()` when the thing you're waiting on runs in
+  `backgroundScope` — `advanceUntilIdle` only drains foreground tasks.
+- Where the Swift router needs a task-group race plus tombstoned waiter IDs for
+  its read timeout, the Kotlin port uses `withTimeout` + `invokeOnCancellation`
+  (atomic with respect to resume), so the waiter map is simply pruned.
+- Expected-failure `async` blocks in tests catch inside the block
+  (`async { runCatching { … } }`) — a failed `async` child cancels the test
+  scope even if the `await` is wrapped.

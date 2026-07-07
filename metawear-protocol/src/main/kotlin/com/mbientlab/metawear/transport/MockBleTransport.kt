@@ -7,7 +7,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.flow
 
 /**
  * In-memory BLE transport for unit tests. No hardware required.
@@ -43,10 +43,24 @@ class MockBleTransport : BleTransport {
     /** Mock RSSI returned by [readRSSI] (default −55 dBm). */
     @Volatile var mockRssi: Int = -55
 
+    /**
+     * Termination is delivered **in-band** (as channel elements) rather than via
+     * `Channel.close(cause)`: closing a channel does not wake a receiver parked
+     * on a kotlinx-coroutines-test `backgroundScope` dispatcher within the
+     * test's virtual time, while `trySend` provably does. In-band markers also
+     * reproduce `AsyncThrowingStream` semantics exactly — buffered packets are
+     * delivered before the failure/completion.
+     */
+    private sealed interface Event {
+        class Packet(val bytes: ByteArray) : Event
+        class Error(val cause: Throwable) : Event
+        data object Complete : Event
+    }
+
     private val lock = Any()
     private val readResponses = mutableMapOf<UUID, ByteArray>()
     private val writes = mutableListOf<Write>()
-    private val notifyChannels = mutableMapOf<UUID, Channel<ByteArray>>()
+    private val notifyChannels = mutableMapOf<UUID, Channel<Event>>()
 
     /** All write calls in order. */
     val writtenData: List<Write> get() = synchronized(lock) { writes.toList() }
@@ -80,7 +94,10 @@ class MockBleTransport : BleTransport {
             notifyChannels.clear()
             snapshot
         }
-        channels.forEach { it.close() }
+        channels.forEach {
+            it.trySend(Event.Complete)
+            it.close()
+        }
     }
 
     override suspend fun write(data: ByteArray, characteristic: UUID, type: WriteType) {
@@ -94,9 +111,17 @@ class MockBleTransport : BleTransport {
     override fun notifications(characteristic: UUID): Flow<ByteArray> {
         // A fresh unbounded channel per subscription; like the Swift mock, the
         // most recent subscriber per characteristic receives injections.
-        val channel = Channel<ByteArray>(Channel.UNLIMITED)
+        val channel = Channel<Event>(Channel.UNLIMITED)
         synchronized(lock) { notifyChannels[characteristic] = channel }
-        return channel.receiveAsFlow()
+        return flow {
+            for (event in channel) {
+                when (event) {
+                    is Event.Packet -> emit(event.bytes)
+                    is Event.Error -> throw event.cause
+                    Event.Complete -> return@flow
+                }
+            }
+        }
     }
 
     override suspend fun readRSSI(): Int = mockRssi
@@ -106,7 +131,7 @@ class MockBleTransport : BleTransport {
     /** Inject a notification packet, simulating a MetaWear response. */
     fun inject(notification: ByteArray, characteristic: UUID) {
         val channel = synchronized(lock) { notifyChannels[characteristic] }
-        channel?.trySend(notification)
+        channel?.trySend(Event.Packet(notification))
     }
 
     /** Simulate a BLE disconnect mid-stream: all notification flows fail. */
@@ -117,6 +142,9 @@ class MockBleTransport : BleTransport {
             notifyChannels.clear()
             snapshot
         }
-        channels.forEach { it.close(cause) }
+        channels.forEach {
+            it.trySend(Event.Error(cause))
+            it.close()
+        }
     }
 }
