@@ -42,6 +42,12 @@ The full vertical slice — scan → connect → `startStream(accelerometer)` �
 | `protocol.ProtocolRouter` | `MWProtocolLayer.swift` |
 | `MetaWearDevice`, `DeviceState` | `MetaWearDevice.swift` (connection, state machine, streaming, send/read/poll slice) |
 | `MetaWearScanner` | `MetaWearScanner.swift` |
+| `sensor.{Gyroscope*, Magnetometer, AccelerometerBosch, AccelerometerBmi270Features/Steps}` | `MWGyroscope/MWMagnetometer/MWAccelerometer.swift` |
+| `sensor.{SensorFusion*, SensorFusionCalibration}` | `MWSensorFusion.swift` |
+| `sensor.{Barometer, Altimeter, AmbientLight, Thermometer, Humidity}` | `MWBarometer/MWAmbientLight/MWTemperature/MWHumidity.swift` |
+| `sensor.{Led, Haptic, Switch, IBeacon, Debug, Settings}` | `MWLED/MWHaptic/MWSwitch/MWiBeacon/MWDebug/MWSettings.swift` |
+| `sensor.{MetaWearTimer, Event, Macro, Gpio, Serial}` | `MWTimer/MWEvent/MWMacro/MWGPIO/MWSerial.swift` |
+| `sensor.{DataProcessor, DataProcessorSignals, MiscReadables}` | `MWDataProcessor/MWMiscReadables.swift` |
 
 The transport *interface* lives here (it is pure JVM: `java.util.UUID`,
 `ByteArray`, `Flow`) so the upcoming protocol router and device layer stay
@@ -52,9 +58,10 @@ Android adaptation to note: the Swift `ScanResult.identifier` is a CoreBluetooth
 `UUID`; on Android peripherals are identified by MAC address, so the seam uses
 an opaque `String`.
 
-The accelerometer is the representative streamable for the first vertical slice;
-the remaining 21 modules (gyro, magnetometer, LED, …) land in the module fan-out
-(Step 5 of the build plan).
+All 22 Swift module files are ported. Known deferred items (they need the
+device-logging port): polled-loggable conformances, processor-handle logging,
+`factoryReset`, and log download/decode. The data-processor stream uses
+client-side processor-id filtering rather than the Swift per-id demux.
 
 ## Build & test
 
