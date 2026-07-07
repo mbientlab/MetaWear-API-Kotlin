@@ -4,6 +4,12 @@ kotlinxCoroutines = "1.10.1"
 kotlinxDatetime = "0.6.2"
 junit = "5.11.4"
 turbine = "1.2.0"
+agp = "9.2.1"
+nordicBle = "1.3.1"
+androidxTestRunner = "1.6.2"
+androidxTestRules = "1.6.1"
+androidxTestExtJunit = "1.2.1"
+junit4 = "4.13.2"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
@@ -12,6 +18,17 @@ kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "1.11.4" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+# Nordic Kotlin BLE Library — coroutine/Flow-native GATT client and scanner.
+# `client` transitively pulls client-api / client-android / core.
+nordic-ble-client = { module = "no.nordicsemi.android.kotlin.ble:client", version.ref = "nordicBle" }
+nordic-ble-scanner = { module = "no.nordicsemi.android.kotlin.ble:scanner", version.ref = "nordicBle" }
+# Instrumented-test stack (hardware smoke tests in :metawear-core).
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
+androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidxTestRules" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
+junit4 = { module = "junit:junit", version.ref = "junit4" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+# No kotlin-android plugin: AGP 9 ships built-in Kotlin (see :metawear-core).
+android-library = { id = "com.android.library", version.ref = "agp" }

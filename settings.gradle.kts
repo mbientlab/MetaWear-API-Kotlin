@@ -23,6 +23,9 @@ dependencyResolutionManagement {
 rootProject.name = "metawear-android"
 
 // Step 1: pure-Kotlin protocol layer (zero Android imports, JVM unit tests).
-// The Android modules (:metawear-core, :metawear-persistence, :metawear-firmware,
+// The remaining Android modules (:metawear-persistence, :metawear-firmware,
 // :app) are added in later steps of the build plan.
 include(":metawear-protocol")
+
+// Step 2: Android transport layer — Nordic-backed BleTransport + hardware smoke tests.
+include(":metawear-core")

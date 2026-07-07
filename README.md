@@ -13,16 +13,20 @@ metawear-android/
 │                          sensor interfaces + configs, BleTransport seam + mock,
 │                          protocol router, MetaWearDevice, MetaWearScanner.
 │                          Fast JVM unit tests (Steps 1–3 of the build plan).
-├── metawear-core/       ← (planned) Nordic-backed BleTransport, Android wiring
+├── metawear-core/       ← Android library. Nordic-backed BleTransport
+│                          (NordicBleTransport), unfiltered scan source
+│                          (AndroidBleScanSource), AndroidMetaWear entry point,
+│                          instrumented hardware smoke tests.
 ├── metawear-persistence/← (planned) Room session storage
 ├── metawear-firmware/   ← (planned) Nordic Android DFU
 └── app/                 ← (planned) Jetpack Compose app
 ```
 
-Only `:metawear-protocol` exists today — it is the foundation everything else
-builds on, ported test-first to lock wire-format correctness before any BLE code.
-The full vertical slice — scan → connect → `startStream(accelerometer)` →
-`Flow<Timestamped<CartesianFloat>>` — runs end-to-end against `MockBleTransport`.
+`:metawear-protocol` is the foundation everything else builds on, ported
+test-first to lock wire-format correctness before any BLE code. The full
+vertical slice — scan → connect → `startStream(accelerometer)` →
+`Flow<Timestamped<CartesianFloat>>` — runs end-to-end against `MockBleTransport`
+on the JVM, and against real hardware via `:metawear-core`'s smoke suite.
 
 ## What's in `:metawear-protocol`
 
@@ -70,13 +74,63 @@ rather than the Swift per-id demux.
 **Test parity: 994 JVM tests vs 932 in the Swift package's no-hardware suite**
 (the Kotlin suite adds coverage for paths Swift only exercises on hardware).
 
+## What's in `:metawear-core`
+
+The Android-only transport layer (`com.mbientlab.metawear.core`), built on the
+[Nordic Kotlin BLE Library](https://github.com/NordicSemiconductor/Kotlin-BLE-Library):
+
+| Kotlin | Ported from (Swift) |
+|---|---|
+| `NordicBleTransport` | `CoreBluetoothPeripheralTransport.swift` (per-peripheral connect/write/read/notify/RSSI) |
+| `AndroidBleScanSource` | `MWCentralManager.swift` (the scanning half) |
+| `AndroidMetaWear` | `MetaWearScanner()` default wiring |
+| `androidTest/HardwareSupport`, `HardwareSmokeTest` | `Tests/MetaWearHardwareTests` essentials |
+
+Transport notes:
+- `connect()` retries Android's transient status-133 (`GATT_ERROR`) failures,
+  discovers all services (so Device Information Service reads resolve by
+  characteristic UUID alone), requests MTU 247 (packed 3-sample streaming does
+  not fit the 23-byte default), and enables notifications on `326A9006-…`.
+- GATT operations are serialized by the Nordic client's internal per-connection
+  mutex — Android allows only one outstanding GATT op.
+- Scans run **without** a service-UUID filter: MetaWear boards don't reliably
+  advertise the custom service UUID, so `MetaWearScanner` matches the
+  "MetaWear" name prefix instead.
+- The library declares Bluetooth permissions but never requests them; apps
+  must be granted `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT` (API 31+) or the
+  legacy `BLUETOOTH`/`ACCESS_FINE_LOCATION` pair (API ≤ 30) first.
+
 ## Build & test
 
 ```bash
-./gradlew :metawear-protocol:test     # run the ported parsing/command/transport tests
+./gradlew :metawear-protocol:test        # ported parsing/command/transport tests (JVM)
+./gradlew :metawear-core:assembleDebug   # Android transport library (AAR)
 ```
 
 Opens directly in Android Studio; the Kotlin toolchain targets JDK 21.
+`:metawear-core` uses AGP 9's built-in Kotlin (no `org.jetbrains.kotlin.android`
+plugin — AGP 8.x does not run on this repo's Gradle 9.6).
+
+### Hardware smoke tests
+
+`:metawear-core` ships an instrumented smoke suite that exercises a real
+MetaMotion S (BMI270) end-to-end: scan → connect (device info + module
+discovery) → battery read → LED pattern → 2 s accelerometer stream (~1 g at
+rest) → disconnect.
+
+1. Connect an Android phone with USB debugging enabled (API 31+).
+2. Charge a MetaMotion S and place it within BLE range.
+3. Run:
+
+```bash
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
+  ./gradlew :metawear-core:connectedAndroidTest
+```
+
+The suite scans for the first advertised "MetaWear" name for 10 s and **skips
+itself cleanly** (JUnit assumption) when no board is in range, so the task is
+safe to run on benches without hardware. With several boards in range it picks
+the lowest MAC for run-to-run stability.
 
 ## Design notes
 
