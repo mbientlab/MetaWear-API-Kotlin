@@ -37,6 +37,75 @@ data class Download<out T>(
 )
 
 /**
+ * A single logger subscription active on the MetaWear, as returned by
+ * `MetaWearDevice.queryActiveLoggers()`. Port of `ActiveLogger` (Swift).
+ */
+data class ActiveLogger(
+    /** The firmware-assigned logger ID (0x00..0x1F). */
+    val loggerID: Int,
+    val module: Module,
+    val register: Int,
+    /**
+     * Raw channel byte (response[4]). For per-channel sources (e.g. multi-
+     * thermistor temperature) this is the channel index. For packed IMU
+     * sources this is 0xFF.
+     */
+    val channel: Int,
+    /**
+     * Byte offset of this chunk within the parent signal's payload. Low 5 bits
+     * of the packed byte.
+     */
+    val chunkOffset: Int,
+    /** Byte length of this chunk. `((packed >> 5) & 0x7) + 1`. */
+    val chunkLength: Int,
+)
+
+/**
+ * A single data processor on-device, as returned by
+ * `MetaWearDevice.queryActiveProcessors()`. Used to reconstruct the processor
+ * graph behind an anonymous signal. Port of `ActiveProcessor` (Swift).
+ */
+data class ActiveProcessor(
+    /** The firmware-assigned processor ID (0x00..0x1F). */
+    val processorID: Int,
+    /**
+     * The module that feeds this processor. When equal to
+     * [Module.DATA_PROCESSOR], the parent is another processor and
+     * [parentProcessorID] is meaningful.
+     */
+    val parentModule: Module,
+    /**
+     * Parent register. For a sensor root this is the data-register; for a
+     * processor chain it's the NOTIFY register (0x03).
+     */
+    val parentRegister: Int,
+    /**
+     * When [parentModule] is [Module.DATA_PROCESSOR], this is the parent
+     * processor's ID. Otherwise it's the raw offset/channel byte from the
+     * response (commonly 0xFF).
+     */
+    val parentProcessorID: Int,
+    /** Byte offset into the parent's output data. */
+    val chunkOffset: Int,
+    /** Byte length of the processor's input chunk within the parent's output. */
+    val chunkLength: Int,
+    /**
+     * Processor type code (see the `MWProcessorType` table in the C++ SDK).
+     * Examples: 0x02 = accumulate/count, 0x07 = RMS/RSS, 0x08 = time, 0x1B = fuser.
+     */
+    val processorType: Int,
+    /** Processor-specific config bytes, stripped of the response header (0..255 each). */
+    val configBytes: List<Int> = emptyList(),
+) {
+    /**
+     * True when this processor reads its input from another processor (as
+     * opposed to a root sensor signal).
+     */
+    val parentIsProcessor: Boolean
+        get() = parentModule == Module.DATA_PROCESSOR && parentRegister == 0x03
+}
+
+/**
  * A 3-axis floating-point vector in the sensor's local frame.
  *
  * Units depend on the producing sensor: accelerometer `g`, gyroscope dps,

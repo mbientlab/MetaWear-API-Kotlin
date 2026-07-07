@@ -2,10 +2,12 @@ package com.mbientlab.metawear.sensor
 
 import com.mbientlab.metawear.MetaWearDevice
 import com.mbientlab.metawear.protocol.Command
+import com.mbientlab.metawear.protocol.LogChunk
 import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 import com.mbientlab.metawear.protocol.Pollable
+import com.mbientlab.metawear.protocol.PolledLoggable
 
 // Humidity (BME280). Port of MWHumidity.swift; mirrors C++
 // `humidity_bme280.{h,cpp}`. The humidity module (0x16) is only present on
@@ -15,19 +17,17 @@ import com.mbientlab.metawear.protocol.Pollable
 // Registers:
 //   HUMIDITY = 0x01   one-shot read (read bit → 0x81)
 //   MODE     = 0x02   set oversampling mode
-//
-// Note: the Swift `MWHumidity: MWPolledLoggable` conformance (timer-driven
-// on-board logging of reads) is part of the polled-logging surface and is not
-// ported here.
 
 /**
  * One-shot read of the BME280 relative-humidity signal (percent, 0-100).
  * Port of `MWHumidity` (Swift).
  *
  * Use [MetaWearDevice.readHumidity], or plug into the generic read pipeline as
- * any other [Pollable] sensor.
+ * any other [Pollable] sensor. Wrap in a
+ * [com.mbientlab.metawear.protocol.PolledLogger] to record timer-driven reads
+ * to on-device flash.
  */
-class Humidity : Pollable<Float> {
+class Humidity : Pollable<Float>, PolledLoggable<Float> {
 
     /**
      * Humidity oversampling mode. Raw values match the C++
@@ -50,6 +50,13 @@ class Humidity : Pollable<Float> {
 
     // Response: [module=0x16, register=0x81, b0, b1, b2, b3] — UInt32 LE raw / 1024.
     override fun parseSample(packet: ByteArray): Float = PacketParser.parseHumidity(packet)
+
+    // ---- PolledLoggable ----
+    // BME280 humidity read response is `[module=0x16, register=0x81, b0,b1,b2,b3]`
+    // — four bytes of payload after the BLE header (UInt32 LE raw / 1024). One
+    // 4-byte log chunk fills exactly one flash entry.
+
+    override val logDataChunks: List<LogChunk> = listOf(LogChunk(0, 4))
 }
 
 /**

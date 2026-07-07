@@ -1,5 +1,6 @@
 package com.mbientlab.metawear
 
+import com.mbientlab.metawear.model.BoardState
 import com.mbientlab.metawear.model.DeviceInformation
 import com.mbientlab.metawear.model.MetaWearException
 import com.mbientlab.metawear.model.ModuleInfo
@@ -13,12 +14,18 @@ import com.mbientlab.metawear.protocol.Pollable
 import com.mbientlab.metawear.protocol.ProtocolRouter
 import com.mbientlab.metawear.protocol.Readable
 import com.mbientlab.metawear.protocol.Streamable
+import com.mbientlab.metawear.sensor.Debug
+import com.mbientlab.metawear.sensor.eraseAllMacros
+import com.mbientlab.metawear.sensor.removeAllEvents
+import com.mbientlab.metawear.sensor.removeAllProcessors
 import com.mbientlab.metawear.transport.BleTransport
 import com.mbientlab.metawear.transport.Uuids
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,12 +38,15 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
-// Port of MetaWearDevice.swift — the Step 3 vertical slice: connection,
-// state machine, streaming, commands, one-shot reads, and polling. Logging,
-// download, macro, and anonymous-signal recovery land with the module fan-out.
+// Port of MetaWearDevice.swift — connection, state machine, streaming,
+// commands, one-shot reads, polling, factory reset, and board-state
+// capture/restore. The logging + download surface (startLogging, downloadLogs,
+// clearLog, logger recovery, …) lives in DeviceLogging.kt as extension
+// functions over the internal hooks exposed below.
 
 /**
  * High-level lifecycle state for a single MetaWear connection.
@@ -80,13 +90,14 @@ class MetaWearDevice(
     /** Peripheral identifier (MAC address on Android). */
     val identifier: String,
     private val transport: BleTransport,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val router = ProtocolRouter(transport, scope)
 
     // ---- Public state ----
 
-    private val _state = MutableStateFlow<DeviceState>(DeviceState.Disconnected)
+    /** Backing state flow. Internal so DeviceLogging.kt can drive transitions. */
+    internal val _state = MutableStateFlow<DeviceState>(DeviceState.Disconnected)
 
     /** Current lifecycle state. Observe before starting mutually-exclusive operations. */
     val state: StateFlow<DeviceState> = _state.asStateFlow()
@@ -106,8 +117,21 @@ class MetaWearDevice(
 
     private data class ActiveStreamKey(val module: Module, val dataRegister: Int)
 
-    /** Serializes stream start/stop so two sensors' command sequences can't interleave. */
-    private val opMutex = Mutex()
+    /**
+     * Serializes stream/log start/stop so two sensors' command sequences can't
+     * interleave. Internal so DeviceLogging.kt shares the same critical section.
+     */
+    internal val opMutex = Mutex()
+
+    /**
+     * Logger IDs assigned by the board per registered signal key, with the byte
+     * count of each chunk. Written by `startLogging` (DeviceLogging.kt), read
+     * during download to reassemble chunk entries into full samples.
+     * Intentionally preserved across unexpected disconnects — the board may
+     * still hold the flash entries, so a reconnect can download without
+     * re-registering.
+     */
+    internal val loggerRegistry = mutableMapOf<String, List<LoggerChunk>>()
 
     /** Signals currently streaming — duplicate and fusion/IMU conflict detection. */
     private val activeStreamKeys = mutableSetOf<ActiveStreamKey>()
@@ -163,6 +187,143 @@ class MetaWearDevice(
         _state.value = DeviceState.Disconnected
         activeStreamKeys.clear()
         activeFusionConfig = null
+    }
+
+    /**
+     * Send a command that is expected to reboot the board or otherwise drop the
+     * BLE link (`Debug.Reset`, `Debug.JumpToBootloader`, …), then wait for the
+     * drop and converge on [DeviceState.Disconnected] without firing
+     * [onUnexpectedDisconnect].
+     *
+     * If the drop doesn't arrive within [timeout], the connection is torn down
+     * locally as a fallback so the device still converges on disconnected.
+     *
+     * The Swift original races an `AsyncStream` drop signal against a sleep in
+     * a task group; here the one-shot signal is a [CompletableDeferred] awaited
+     * under [withTimeoutOrNull].
+     */
+    suspend fun sendExpectingDisconnect(command: Command, timeout: Duration = 5.seconds) {
+        // Swap the unexpected-disconnect hook for a one-shot signal BEFORE
+        // sending, so a fast reboot can't race the handler installation.
+        val dropSignal = CompletableDeferred<Unit>()
+        router.setDisconnectHandler { dropSignal.complete(Unit) }
+        try {
+            send(command)
+        } catch (e: Throwable) {
+            // The command never went out — restore normal disconnect handling
+            // so a later real drop still reaches onUnexpectedDisconnect.
+            router.setDisconnectHandler(::handleUnexpectedDisconnect)
+            throw e
+        }
+        val dropped = withTimeoutOrNull(timeout) { dropSignal.await() } != null
+        if (dropped) {
+            // Link already gone; converge local state the way disconnect() does.
+            router.clearDisconnectHandler()
+            router.stop()
+        } else {
+            runCatching { disconnect() }
+        }
+        _state.value = DeviceState.Disconnected
+        activeStreamKeys.clear()
+        activeFusionConfig = null
+        logReferenceDate = null
+    }
+
+    // ---- Factory reset ----
+
+    /**
+     * Scrub all on-device runtime state and reboot the board.
+     *
+     * Equivalent to the C-API call sequence:
+     * ```
+     * mbl_mw_logging_stop(board);
+     * mbl_mw_logging_clear_entries(board);
+     * mbl_mw_event_remove_all(board);
+     * mbl_mw_dataprocessor_remove_all(board);
+     * mbl_mw_macro_erase_all(board);
+     * mbl_mw_debug_reset_after_gc(board);
+     * ```
+     *
+     * The wire sequence (write-without-response, in order) is:
+     * 1. `[0x0B, 0x01, 0x00]` — stop logging
+     * 2. `[0x0B, 0x09, 0xFF, 0xFF, 0xFF, 0xFF]` — drop all log entries
+     * 3. `[0x0B, 0x0A]` — remove all logger triggers
+     * 4. `[0x0A, 0x05]` — remove all event bindings
+     * 5. `[0x09, 0x08]` — remove all data processors
+     * 6. `[0x0F, 0x08]` — erase all macros
+     * 7. `[0xFE, 0x05]` — reset after garbage collection (preferred reboot trigger)
+     * 8. `[0xFE, 0x01]` — immediate reset (fallback: some firmware revisions —
+     *    notably MMS fw 1.5.0 — silently ignore `[0xFE, 0x05]` if the board has
+     *    nothing pending in flash GC, leaving the resetUID unincremented and the
+     *    boot counter unchanged. Step 8 forces the reboot. If step 7 already
+     *    triggered a reset, the BLE link is gone and step 8 is dropped, which is
+     *    exactly what we want.)
+     *
+     * After steps 7-8 the BLE link drops and the device transitions to
+     * [DeviceState.Disconnected]. [onUnexpectedDisconnect] is suppressed because
+     * this disconnect is intentional. Call [connect] (or [reconnect]) again
+     * after a short delay (~1s) to bring the device back up.
+     *
+     * Active timers and currently-streaming sensor outputs aren't stopped
+     * explicitly — the reboot in step 7 clears all volatile state, including
+     * sensor output enables and timer handles, so they're swept up automatically.
+     *
+     * @throws MetaWearException.InvalidState if the device is already
+     *   disconnected, or any underlying transport error if a write fails before
+     *   the reset command lands. Once a write fails the sequence aborts —
+     *   partial resets are possible but rare in practice (each step is a single
+     *   write).
+     */
+    suspend fun factoryReset() {
+        if (_state.value == DeviceState.Disconnected) {
+            throw MetaWearException.InvalidState("Cannot factory-reset a disconnected device")
+        }
+
+        // Suppress the unexpected-disconnect callback: the reset we're about to
+        // trigger will drop BLE, but it's intentional, not an unexpected drop.
+        router.clearDisconnectHandler()
+
+        // 1. Stop active logging. Use a raw write rather than `stopLogging(...)`
+        //    because that overload requires a specific Loggable handle, and we
+        //    don't (and shouldn't) need to know which sensors are running.
+        router.write(Packet.command(Module.LOGGING, 0x01, 0x00))
+
+        // 2. Drop all log entries from flash. Mirrors `mbl_mw_logging_clear_entries`.
+        router.write(Packet.command(Module.LOGGING, 0x09, 0xFF, 0xFF, 0xFF, 0xFF))
+
+        // 3. Remove all logger triggers (subscriptions assigned via [0x0B, 0x02, ...]).
+        router.write(Packet.command(Module.LOGGING, 0x0A))
+
+        // 4. Remove all event bindings. Mirrors `mbl_mw_event_remove_all`.
+        removeAllEvents()
+
+        // 5. Remove all data processors. Mirrors `mbl_mw_dataprocessor_remove_all`.
+        removeAllProcessors()
+
+        // 6. Erase all macros. Mirrors `mbl_mw_macro_erase_all`.
+        eraseAllMacros()
+
+        // 7. Reset after GC — the firmware finishes garbage collection of the
+        //    flash regions we just freed, then reboots. BLE drops momentarily.
+        send(Debug.ResetAfterGc())
+
+        // 8. Immediate reset fallback — see the doc comment above. On MMS
+        //    firmware revisions where step 7 is a no-op, this guarantees the
+        //    reboot. We swallow any error here because the link may already
+        //    be gone (which is what success looks like).
+        runCatching { send(Debug.Reset()) }
+
+        // Local cleanup. The wire side is done; the link will drop on the
+        // next BLE event. Tear down the protocol layer and zero out the in-
+        // memory caches that won't survive the reboot.
+        router.stop()
+        _state.value = DeviceState.Disconnected
+        activeStreamKeys.clear()
+        activeFusionConfig = null
+        loggerRegistry.clear()
+        logReferenceDate = null
+        // deviceInfo and `modules` describe immutable hardware — preserved so
+        // the caller can decide whether to reuse them after `reconnect()`.
     }
 
     // ---- Streaming ----
@@ -387,6 +548,38 @@ class MetaWearDevice(
     val hasBarometer: Boolean get() = modules[Module.BAROMETER]?.isPresent ?: false
     val hasSensorFusion: Boolean get() = modules[Module.SENSOR_FUSION]?.isPresent ?: false
 
+    // ---- Board state (serialize / deserialize) ----
+
+    /**
+     * Capture the current board state for persistence. Call after [connect] has
+     * completed at least once. Returns `null` if initialization has not yet run.
+     */
+    fun captureBoardState(): BoardState? {
+        val info = deviceInfo ?: return null
+        return BoardState(
+            deviceInformation = info,
+            modules = Module.entries.mapNotNull { modules[it] },
+            logReferenceDate = logReferenceDate,
+        )
+    }
+
+    /**
+     * Restore a previously-captured state to skip module discovery on the next
+     * connect. Must be called while the device is [DeviceState.Disconnected].
+     *
+     * The caller is responsible for verifying firmware/hardware compatibility
+     * via [BoardState.isCompatible] before calling — this method performs no
+     * validation of its own beyond state.
+     */
+    fun restoreBoardState(state: BoardState) {
+        if (_state.value != DeviceState.Disconnected) {
+            throw MetaWearException.OperationFailed("restoreBoardState requires disconnected state")
+        }
+        deviceInfo = state.deviceInformation
+        modules = state.modulesByOpcode
+        logReferenceDate = state.logReferenceDate
+    }
+
     // ---- Initialization ----
 
     private suspend fun initialize() {
@@ -426,6 +619,8 @@ class MetaWearDevice(
         activeStreamKeys.clear()
         activeFusionConfig = null
         logReferenceDate = null
+        // loggerRegistry is intentionally preserved — the device may still have
+        // active loggers. After reconnect the caller can download without re-starting.
         onUnexpectedDisconnect?.invoke(error)
     }
 

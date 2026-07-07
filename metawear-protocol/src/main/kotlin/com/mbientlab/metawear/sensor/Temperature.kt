@@ -1,10 +1,13 @@
 package com.mbientlab.metawear.sensor
 
+import com.mbientlab.metawear.model.MetaWearException
 import com.mbientlab.metawear.protocol.Command
+import com.mbientlab.metawear.protocol.LogChunk
 import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 import com.mbientlab.metawear.protocol.Pollable
+import com.mbientlab.metawear.protocol.PolledLoggable
 
 // Multi-channel temperature. Port of MWTemperature.swift; mirrors C++
 // `multichanneltemperature.{h,cpp}`. The temperature module (0x04) exposes a
@@ -17,10 +20,6 @@ import com.mbientlab.metawear.protocol.Pollable
 // Registers:
 //   TEMPERATURE = 0x01   read one sample (read bit → 0x81; silent → 0xC1)
 //   MODE        = 0x02   configure external thermistor pin mapping
-//
-// Note: the Swift `MWThermometer: MWPolledLoggable` conformance (timer-driven
-// on-board logging of reads) is part of the polled-logging surface and is not
-// ported here.
 
 /**
  * Physical source backing one channel of the multi-channel temperature module.
@@ -101,7 +100,7 @@ class TemperatureChannel(
 class Thermometer(
     val channel: Int,
     val silent: Boolean = false,
-) : Pollable<Float> {
+) : Pollable<Float>, PolledLoggable<Float> {
 
     override val module: Module = Module.TEMPERATURE
     override val dataRegister: Int = 0x01
@@ -117,6 +116,38 @@ class Thermometer(
     // Response: [module=0x04, register=0x81, channel, lo, hi] — signed Int16
     // (Celsius × 8) after the channel data-id byte.
     override fun parseSample(packet: ByteArray): Float = PacketParser.parseTemperature(packet)
+
+    // ---- PolledLoggable ----
+    // Temperature read responses are `[module=0x04, register=0x81, channel, lo, hi]`
+    // — three bytes of payload after the BLE header: the channel byte plus a
+    // signed Int16 (Celsius × 8). One 3-byte log chunk fits in a single 4-byte
+    // flash entry.
+
+    /**
+     * Log the 2-byte temperature value at payload offset 0. The firmware
+     * strips the channel data-id byte before logging (the trigger's channel
+     * index already matched it), so the Int16 value IS the payload.
+     * Hardware-verified on MMS fw 1.7.2: offset 1 produced misaligned values
+     * (the high byte plus a garbage byte); offset 0 decodes cleanly.
+     */
+    override val logDataChunks: List<LogChunk> = listOf(LogChunk(0, 2))
+
+    /**
+     * The thermometer's responses carry a channel data-id; the logger trigger
+     * must name the channel to match them.
+     */
+    override val loggerTriggerIndex: Int get() = channel
+
+    /**
+     * Reassembled log data is the bare Int16 (Celsius × 8) — no channel byte,
+     * so the default header-prepending decode doesn't fit.
+     */
+    override fun parseLogSample(data: ByteArray): Float {
+        if (data.size < 2) {
+            throw MetaWearException.OperationFailed("Temperature log chunk too short: ${data.size} bytes")
+        }
+        return PacketParser.parseInt16LE(data, 0).toFloat() / 8.0f
+    }
 }
 
 /**
