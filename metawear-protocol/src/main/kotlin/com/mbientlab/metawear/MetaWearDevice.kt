@@ -337,6 +337,46 @@ class MetaWearDevice(
     /** Read the current RSSI of the active connection, in dBm. */
     suspend fun readRSSI(): Int = transport.readRSSI()
 
+    // ---- Internal hooks for module extension functions ----
+    //
+    // Port of the Swift internal MetaWearDevice extension surface that module
+    // files (Timer, Event, Macro, GPIO, Serial, DataProcessor, …) build on.
+
+    /** Write raw bytes to the command characteristic (write-without-response). */
+    internal suspend fun writeRaw(data: ByteArray) = router.write(data)
+
+    /** Write raw bytes using write-with-response (macro commands). */
+    internal suspend fun writeMacroRaw(data: ByteArray) = router.writeMacro(data)
+
+    /**
+     * Write [command] and await a bit-7 response on `(awaitModule, awaitRegister)`.
+     * Used by reads whose request and response registers differ (e.g. GPIO).
+     */
+    internal suspend fun sendRead(
+        command: ByteArray,
+        awaitModule: Module,
+        awaitRegister: Int,
+        timeout: Duration = ProtocolRouter.READ_TIMEOUT,
+    ): ByteArray = router.writeAndRead(command, awaitModule, awaitRegister, timeout)
+
+    /**
+     * Write [command] and await a plain (non-read-bit) notification — I2C/SPI
+     * reads respond with an unsolicited data packet.
+     */
+    internal suspend fun sendAndAwaitNotification(
+        command: ByteArray,
+        awaitModule: Module,
+        awaitRegister: Int,
+    ): ByteArray = router.writeAndAwaitNotification(command, awaitModule, awaitRegister)
+
+    /** Subscribe to notifications from `(module, register)`. */
+    internal fun subscribeRaw(module: Module, register: Int): Flow<ByteArray> =
+        router.subscribe(module, register)
+
+    /** Remove a `(module, register)` subscription. */
+    internal fun unsubscribeRaw(module: Module, register: Int) =
+        router.unsubscribe(module, register)
+
     // ---- Module info convenience ----
 
     /** Discovery info for one module, or `null` if absent from the last discovery. */
