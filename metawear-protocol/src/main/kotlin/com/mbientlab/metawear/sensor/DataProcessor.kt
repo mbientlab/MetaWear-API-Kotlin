@@ -6,7 +6,6 @@ import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.Packet
 import com.mbientlab.metawear.protocol.PacketParser
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.filter
 
 // Port of the processor half of MWDataProcessor.swift — the config protocol,
 // every processor-stage configuration type, and the MetaWearDevice extension
@@ -781,7 +780,9 @@ object DataProcessor {
 // ---- Data-processor register map ----
 
 private const val DP_ADD = 0x02
-private const val DP_NOTIFY = 0x03
+
+/** NOTIFY register — internal so the device's processor demux can subscribe it. */
+internal const val DP_NOTIFY = 0x03
 private const val DP_REMOVE = 0x06
 private const val DP_NOTIFY_ENABLE = 0x07
 private const val DP_REMOVE_ALL = 0x08
@@ -849,18 +850,18 @@ suspend fun MetaWearDevice.createProcessor(
  * Each element is a raw BLE packet `[0x09, 0x03, processorID, data...]`.
  * Parse `data` according to the processor's output type.
  *
- * Implementation note: where the Swift SDK demultiplexes the shared NOTIFY
- * register inside the device (one per-id continuation map fed by a single
- * demux task), this port subscribes the NOTIFY register and filters packets
- * by processor id client-side. Consequence: all processor flows share one
- * underlying `(0x09, 0x03)` subscription, and starting a second processor
- * stream replaces that subscription — the earlier flow completes. Collect
- * concurrent processors from a single [streamProcessor] flow per subscription,
- * or re-call [streamProcessor] for the processor you want to keep.
+ * All processor flows share one underlying `(0x09, 0x03)` subscription that
+ * the device demultiplexes by processor id — the Kotlin port of the Swift
+ * `processorDemuxTask` / `processorContinuations` pair — so any number of
+ * processors can stream simultaneously. Each flow ends when
+ * [stopStreamingProcessor] or [removeProcessor] is called for its handle,
+ * completes cleanly on an intentional [MetaWearDevice.disconnect] (or
+ * [removeAllProcessors]), and fails with the underlying error on an
+ * unexpected disconnect.
  */
 suspend fun MetaWearDevice.streamProcessor(handle: ProcessorHandle): Flow<ByteArray> {
-    // Subscribe before enabling so no early packet is dropped.
-    val raw = subscribeRaw(Module.DATA_PROCESSOR, DP_NOTIFY)
+    // Register with the shared demux before enabling so no early packet is dropped.
+    val stream = registerProcessorStream(handle.id)
     // Two enables, mirroring C++ `MblMwDataProcessor::subscribe()`:
     //  1. NOTIFY_ENABLE [0x09, 0x07, proc_id, 0x01] — route this processor's
     //     output to the NOTIFY register.
@@ -871,20 +872,26 @@ suspend fun MetaWearDevice.streamProcessor(handle: ProcessorHandle): Flow<ByteAr
     // actively-fed counter.
     writeRaw(Packet.command(Module.DATA_PROCESSOR, DP_NOTIFY_ENABLE, handle.id, 0x01))
     writeRaw(Packet.command(Module.DATA_PROCESSOR, DP_NOTIFY, 0x01))
-    return raw.filter { it.size >= 3 && (it[2].toInt() and 0xFF) == handle.id }
+    return stream
 }
 
-/** Disable notifications from a processor. */
+/** Disable notifications from a processor and finish its stream, if open. */
 suspend fun MetaWearDevice.stopStreamingProcessor(handle: ProcessorHandle) {
+    unregisterProcessorStream(handle.id)
     writeRaw(Packet.command(Module.DATA_PROCESSOR, DP_NOTIFY_ENABLE, handle.id, 0x00))
 }
 
-/** Remove one processor from the board. */
+/** Remove one processor from the board, finishing its stream if open. */
 suspend fun MetaWearDevice.removeProcessor(handle: ProcessorHandle) {
+    unregisterProcessorStream(handle.id)
     writeRaw(Packet.command(Module.DATA_PROCESSOR, DP_REMOVE, handle.id))
 }
 
-/** Remove all processors from the board. */
+/**
+ * Remove all processors from the board. Also tears down the processor demux
+ * and finishes every open processor stream (Swift parity).
+ */
 suspend fun MetaWearDevice.removeAllProcessors() {
+    terminateAllProcessorStreams()
     writeRaw(Packet.command(Module.DATA_PROCESSOR, DP_REMOVE_ALL))
 }

@@ -96,7 +96,7 @@ The Android-only transport layer (`com.mbientlab.metawear.core`), built on the
 | `NordicBleTransport` | `CoreBluetoothPeripheralTransport.swift` (per-peripheral connect/write/read/notify/RSSI) |
 | `AndroidBleScanSource` | `MWCentralManager.swift` (the scanning half) |
 | `AndroidMetaWear` | `MetaWearScanner()` default wiring |
-| `androidTest/HardwareSupport`, `HardwareSmokeTest` | `Tests/MetaWearHardwareTests` essentials |
+| `androidTest/HardwareSupport`, `HardwareSmokeTest` + 10 per-module suites (gyro BMI270, magnetometer, sensor fusion, switch, haptic, GPIO, settings, logging round-trip, environment, one-shot reads) | `Tests/MetaWearHardwareTests` (highest-value subset; suites self-skip without a board) |
 
 Transport notes:
 - `connect()` retries Android's transient status-133 (`GATT_ERROR`) failures,

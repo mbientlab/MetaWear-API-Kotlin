@@ -14,6 +14,7 @@ import com.mbientlab.metawear.protocol.Pollable
 import com.mbientlab.metawear.protocol.ProtocolRouter
 import com.mbientlab.metawear.protocol.Readable
 import com.mbientlab.metawear.protocol.Streamable
+import com.mbientlab.metawear.sensor.DP_NOTIFY
 import com.mbientlab.metawear.sensor.Debug
 import com.mbientlab.metawear.sensor.eraseAllMacros
 import com.mbientlab.metawear.sensor.removeAllEvents
@@ -25,16 +26,21 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -74,6 +80,13 @@ sealed class DeviceState {
     /** A flash-log readout is in progress; [progress] is `0.0..1.0`. */
     data class Downloading(val progress: Double) : DeviceState()
 }
+
+/**
+ * Per-processor demux channel buffer. Mirrors `ProtocolRouter.STREAM_BUFFER`
+ * semantics: if a collector stalls, shed the oldest packets rather than
+ * growing without bound.
+ */
+private const val PROCESSOR_STREAM_BUFFER = 256
 
 /**
  * The main entry point for communicating with a single MetaWear sensor.
@@ -148,6 +161,23 @@ class MetaWearDevice(
     var logReferenceDate: Instant? = null
         private set
 
+    // ---- Data processor demux state ----
+    //
+    // Port of the Swift `processorDemuxTask` / `processorContinuations` pair:
+    // one shared `(0x09, 0x03)` router subscription fans NOTIFY packets out to
+    // per-processor-id channels, so multiple processors stream simultaneously.
+    // The channel registry lives here (extension functions can't add state);
+    // the streaming API itself stays in sensor/DataProcessor.kt.
+
+    /** Guards [processorChannels] and [processorDemuxJob]. */
+    private val processorDemuxLock = Any()
+
+    /** Single background job fanning out `(0x09, 0x03)` packets by processor id. */
+    private var processorDemuxJob: Job? = null
+
+    /** Per-processor-id channels registered by `streamProcessor`. */
+    private val processorChannels = mutableMapOf<Int, Channel<ByteArray>>()
+
     // ---- Connection ----
 
     /**
@@ -182,6 +212,9 @@ class MetaWearDevice(
      */
     suspend fun disconnect() {
         router.clearDisconnectHandler()
+        // Finish processor flows cleanly before the router tears down, so
+        // collectors see completion rather than a "protocol stopped" error.
+        terminateAllProcessorStreams()
         router.stop()
         transport.disconnect()
         _state.value = DeviceState.Disconnected
@@ -219,6 +252,7 @@ class MetaWearDevice(
         if (dropped) {
             // Link already gone; converge local state the way disconnect() does.
             router.clearDisconnectHandler()
+            terminateAllProcessorStreams()
             router.stop()
         } else {
             runCatching { disconnect() }
@@ -298,6 +332,8 @@ class MetaWearDevice(
         removeAllEvents()
 
         // 5. Remove all data processors. Mirrors `mbl_mw_dataprocessor_remove_all`.
+        //    Also tears down the processor demux job and finishes any open
+        //    processor streams on the Kotlin side.
         removeAllProcessors()
 
         // 6. Erase all macros. Mirrors `mbl_mw_macro_erase_all`.
@@ -538,6 +574,81 @@ class MetaWearDevice(
     internal fun unsubscribeRaw(module: Module, register: Int) =
         router.unsubscribe(module, register)
 
+    // ---- Data processor demux ----
+
+    /**
+     * Register a per-processor-id stream with the shared demux, launching the
+     * demux job on first use. Kotlin port of the Swift `ensureProcessorDemux()`
+     * + `processorContinuations[id] = cont` pair. Re-registering an id closes
+     * the previous flow for that id cleanly.
+     */
+    internal fun registerProcessorStream(id: Int): Flow<ByteArray> {
+        val channel = Channel<ByteArray>(
+            capacity = PROCESSOR_STREAM_BUFFER,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
+        val previous: Channel<ByteArray>?
+        synchronized(processorDemuxLock) {
+            ensureProcessorDemuxLocked()
+            previous = processorChannels.put(id, channel)
+        }
+        previous?.close()
+        return channel.receiveAsFlow()
+    }
+
+    /** Finish one processor stream cleanly and drop its demux registration. */
+    internal fun unregisterProcessorStream(id: Int) {
+        val channel = synchronized(processorDemuxLock) { processorChannels.remove(id) }
+        channel?.close()
+    }
+
+    /**
+     * Finish every processor stream — cleanly when [error] is `null`,
+     * exceptionally otherwise — and stop the demux job so the next
+     * [registerProcessorStream] relaunches it. Port of the Swift
+     * `terminateAllProcessorStreams(with:)` (which always fails; the clean
+     * variant covers intentional teardown: disconnect, removeAllProcessors).
+     */
+    internal fun terminateAllProcessorStreams(error: Throwable? = null) {
+        val channels: List<Channel<ByteArray>>
+        val job: Job?
+        synchronized(processorDemuxLock) {
+            channels = processorChannels.values.toList()
+            processorChannels.clear()
+            job = processorDemuxJob
+            processorDemuxJob = null
+        }
+        channels.forEach { it.close(error) }
+        job?.cancel()
+    }
+
+    /**
+     * Launch the shared demux job if it isn't already running. Must be called
+     * while holding [processorDemuxLock]. The job owns the device's single
+     * `(0x09, 0x03)` router subscription; when that flow fails (BLE drop) or
+     * completes (router replaced/unsubscribed the key), all per-processor
+     * flows are terminated to match.
+     */
+    private fun ensureProcessorDemuxLocked() {
+        if (processorDemuxJob != null) return
+        val raw = subscribeRaw(Module.DATA_PROCESSOR, DP_NOTIFY)
+        processorDemuxJob = scope.launch {
+            try {
+                raw.collect { packet ->
+                    if (packet.size < 3) return@collect
+                    val pid = packet[2].toInt() and 0xFF
+                    val channel = synchronized(processorDemuxLock) { processorChannels[pid] }
+                    channel?.trySend(packet)
+                }
+                terminateAllProcessorStreams()
+            } catch (e: CancellationException) {
+                throw e // terminateAllProcessorStreams cancelled us — already torn down
+            } catch (e: Throwable) {
+                terminateAllProcessorStreams(e)
+            }
+        }
+    }
+
     // ---- Module info convenience ----
 
     /** Discovery info for one module, or `null` if absent from the last discovery. */
@@ -621,6 +732,7 @@ class MetaWearDevice(
         logReferenceDate = null
         // loggerRegistry is intentionally preserved — the device may still have
         // active loggers. After reconnect the caller can download without re-starting.
+        terminateAllProcessorStreams(error)
         onUnexpectedDisconnect?.invoke(error)
     }
 

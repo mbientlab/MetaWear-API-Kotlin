@@ -107,8 +107,9 @@ class LastResetTimeTest {
 
 // ---- MacAddress — parity with MWSettings.ReadMacAddress ----
 //
-// Swift asserts the MWMACAddress typealias resolves to MWSettings.ReadMacAddress;
-// Kotlin has no typealias to verify, so assert the same wire identity directly.
+// Like Swift's MWMACAddress, MacAddress is a typealias for the canonical
+// Settings.ReadMacAddress; these tests pin the shared wire identity through
+// the alias so a future divergence fails loudly.
 
 class MacAddressTest {
 

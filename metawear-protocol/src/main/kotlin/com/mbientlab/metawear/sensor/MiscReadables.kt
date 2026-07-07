@@ -116,22 +116,15 @@ class LastResetTime : Pollable<LastResetTime.Reading> {
 /**
  * One-shot read of the board's MAC address. Parity port of `MWMACAddress`.
  *
- * In Swift this is a typealias for `MWSettings.ReadMacAddress`; here it is a
- * standalone readable against the same settings register (0x0B). Polling an
- * identity read is a harmless no-op way to verify the link is alive, so it is
- * [Pollable] like the Swift original.
+ * Exactly like the Swift original — where `MWMACAddress` is a typealias for
+ * `MWSettings.ReadMacAddress` — this is an alias for the canonical
+ * [Settings.ReadMacAddress] readable (settings register 0x0B), kept so
+ * existing `device.read(MacAddress())` callers keep compiling. Polling an
+ * identity read is a harmless no-op way to verify the link is alive, so the
+ * canonical type is [Pollable] like the Swift original.
  *
  * Request:  `[0x11, 0x8B]`
  * Response: `[0x11, 0x8B, mac[6 LE]]` (or 7 payload bytes with a leading
  * address-type byte on newer firmware) → canonical `"AA:BB:CC:DD:EE:FF"`.
  */
-class MacAddress : Pollable<String> {
-
-    override val module: Module = Module.SETTINGS
-    override val dataRegister: Int = 0x0B
-
-    /** `[0x11, 0x8B]` — settings MAC register with the read bit set. */
-    override val readCommand: ByteArray = Packet.read(Module.SETTINGS, 0x0B)
-
-    override fun parseSample(packet: ByteArray): String = PacketParser.parseMacAddress(packet)
-}
+typealias MacAddress = Settings.ReadMacAddress

@@ -4,9 +4,12 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mbientlab.metawear.DeviceState
 import com.mbientlab.metawear.MetaWearDevice
 import com.mbientlab.metawear.MetaWearScanner
+import com.mbientlab.metawear.model.Timestamped
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
@@ -102,4 +105,21 @@ object HardwareSupport {
             }
         }
     }
+}
+
+/**
+ * Collect [stream] for [millis] of wall-clock time and return the sample
+ * values. The enclosing `runBlocking` event loop is single-threaded, so the
+ * plain list needs no synchronization.
+ */
+suspend fun <S> CoroutineScope.collectStreamFor(
+    stream: Flow<Timestamped<S>>,
+    millis: Long,
+): List<S> {
+    val samples = mutableListOf<S>()
+    val collector = launch { stream.collect { samples += it.value } }
+    delay(millis)
+    collector.cancel()
+    collector.join()
+    return samples
 }
