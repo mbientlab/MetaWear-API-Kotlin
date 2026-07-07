@@ -8,7 +8,10 @@ import com.mbientlab.metawear.model.CartesianFloat
 import com.mbientlab.metawear.model.LoggedSample
 import com.mbientlab.metawear.protocol.Module
 import com.mbientlab.metawear.protocol.PolledLogger
+import com.mbientlab.metawear.recoverLoggers
 import com.mbientlab.metawear.sensor.Accelerometer
+import com.mbientlab.metawear.sensor.Altimeter
+import com.mbientlab.metawear.sensor.AmbientLight
 import com.mbientlab.metawear.sensor.Humidity
 import com.mbientlab.metawear.sensor.SensorFusionChip
 import com.mbientlab.metawear.sensor.SensorFusionMode
@@ -226,5 +229,110 @@ class DemoBleTransportTest {
         samples.forEach { assertTrue(abs(it.value - 45f) < 8f, "humidity ${it.value} should be ~45 %") }
 
         device.disconnect()
+    }
+
+    // ---- Streamed environmental surface ----
+
+    @Test
+    fun `ambient light stream produces plausible lux waveform`() = withDemoDevice { device ->
+        device.connect()
+
+        val sensor = AmbientLight()
+        val samples = device.startStream(sensor).take(4).toList()
+
+        // Demo waveform: (320 ± 90) lux, streamed as raw milli-lux Longs.
+        samples.forEach { sample ->
+            val lux = AmbientLight.lux(sample.value)
+            assertTrue(abs(lux - 320f) < 120f, "lux $lux should be ~320")
+        }
+
+        device.stopStreaming(sensor)
+        device.disconnect()
+    }
+
+    @Test
+    fun `altimeter stream produces plausible altitude`() = withDemoDevice { device ->
+        device.connect()
+
+        val sensor = Altimeter()
+        val samples = device.startStream(sensor).take(4).toList()
+
+        // Demo waveform: (112 ± 2) m.
+        samples.forEach { assertTrue(abs(it.value - 112f) < 4f, "altitude ${it.value} should be ~112 m") }
+
+        device.stopStreaming(sensor)
+        device.disconnect()
+    }
+
+    // ---- Pending sessions across a "process restart" ----
+    // A second MetaWearDevice over the SAME transport models an app relaunch:
+    // fresh in-memory state on the host, board-side loggers still armed.
+
+    @Test
+    fun `streamed log survives restart via recoverLoggers`() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            runBlocking {
+                withTimeout(30_000) {
+                    val transport = DemoBleTransport(scope)
+                    val sensor = Accelerometer.make(impl = 4, odrHz = 100.0, rangeG = 8f)!!
+
+                    // "First launch": arm the logger, then die without stopping.
+                    val first = MetaWearDevice(DemoBleTransport.DEVICE_IDENTIFIER, transport, scope)
+                    first.connect()
+                    first.startLogging(sensor)
+                    delay(1_200)
+                    first.disconnect()
+
+                    // "Relaunch": fresh device, empty in-memory registry.
+                    val second = MetaWearDevice(DemoBleTransport.DEVICE_IDENTIFIER, transport, scope)
+                    second.connect()
+                    second.stopLogging(sensor)
+                    second.recoverLoggers(sensor)
+
+                    var samples: List<LoggedSample<CartesianFloat>> = emptyList()
+                    second.downloadLogs(sensor).collect { samples = it.data }
+
+                    assertTrue(samples.isNotEmpty(), "restart download should decode samples")
+                    samples.forEach { assertTrue(abs(it.value.z - 1f) < 0.1f) }
+                    second.disconnect()
+                }
+            }
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `polled log survives restart via persisted handles and recoverLoggers`() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            runBlocking {
+                withTimeout(30_000) {
+                    val transport = DemoBleTransport(scope)
+                    val logger = PolledLogger(Thermometer(channel = 1), periodMs = 1_000)
+
+                    val first = MetaWearDevice(DemoBleTransport.DEVICE_IDENTIFIER, transport, scope)
+                    first.connect()
+                    val handles = first.startLogging(logger)   // ← the app persists these
+                    delay(1_200)
+                    first.disconnect()
+
+                    val second = MetaWearDevice(DemoBleTransport.DEVICE_IDENTIFIER, transport, scope)
+                    second.connect()
+                    second.recoverLoggers(logger)
+                    second.stopLogging(logger, handles)        // handles round-tripped the codec
+
+                    var samples: List<LoggedSample<Float>> = emptyList()
+                    second.downloadLogs(logger).collect { samples = it.data }
+
+                    assertTrue(samples.isNotEmpty(), "polled restart download should decode samples")
+                    samples.forEach { assertTrue(abs(it.value - 22.5f) < 1f) }
+                    second.disconnect()
+                }
+            }
+        } finally {
+            scope.cancel()
+        }
     }
 }

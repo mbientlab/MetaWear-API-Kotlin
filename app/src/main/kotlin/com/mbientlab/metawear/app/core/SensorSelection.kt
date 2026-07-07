@@ -2,9 +2,10 @@ package com.mbientlab.metawear.app.core
 
 /**
  * The sensors the app can stream/log, with per-sensor rate/range menus and
- * display metadata. Port of `SensorSelection.swift` (lean: ambient light is
- * not ported; this app covers the IMU + fusion surface plus the polled
- * environmental readables — temperature, humidity, barometer pressure).
+ * display metadata. Port of `SensorSelection.swift`: the IMU + fusion
+ * surface, the polled environmental readables (temperature, humidity,
+ * polled pressure), and the streamed environmental signals (barometer
+ * pressure, altitude, ambient light).
  */
 enum class SensorKey(
     /** Human-readable name. */
@@ -24,7 +25,10 @@ enum class SensorKey(
     FUSION_CORRECTED_MAG("Corrected Mag", "fusion-cmag"),
     TEMPERATURE("Temperature", "temp"),
     HUMIDITY("Humidity", "humidity"),
-    PRESSURE("Pressure", "pressure");
+    PRESSURE("Pressure (polled)", "pressure"),
+    PRESSURE_STREAMED("Pressure (streamed)", "pressure-stream"),
+    ALTITUDE("Altitude", "altitude"),
+    AMBIENT_LIGHT("Ambient Light", "light");
 
     /** Whether this output rides the on-board sensor-fusion engine. */
     val isFusion: Boolean
@@ -43,12 +47,23 @@ enum class SensorKey(
     val isPolled: Boolean
         get() = this == TEMPERATURE || this == HUMIDITY || this == PRESSURE
 
+    /** Environmental sensors (polled readables + streamed baro/light) — the picker's second section. */
+    val isEnvironmental: Boolean
+        get() = isPolled || this == PRESSURE_STREAMED || this == ALTITUDE || this == AMBIENT_LIGHT
+
+    /** Altitude is stream-only (no SDK `Loggable` conformance) — hidden in the logging picker. */
+    val canLog: Boolean get() = this != ALTITUDE
+
     /** Sample-rate menu in Hz. Fusion outputs run at the engine's fixed 100 Hz. */
     val rateOptionsHz: List<Double>
         get() = when (this) {
             ACCELEROMETER, GYROSCOPE -> listOf(12.5, 25.0, 50.0, 100.0, 200.0)
             MAGNETOMETER -> listOf(10.0, 15.0, 20.0, 25.0, 30.0)
             TEMPERATURE, HUMIDITY, PRESSURE -> emptyList()   // interval-picked instead
+            // Nominal BMP280 notification rates (standby 1000 / 125 / 0.5 ms).
+            PRESSURE_STREAMED, ALTITUDE -> listOf(1.0, 8.0, 25.0)
+            // LTR329 measurement-rate menu (2000 … 50 ms).
+            AMBIENT_LIGHT -> listOf(0.5, 1.0, 2.0, 5.0, 10.0, 20.0)
             else -> listOf(50.0, 100.0)
         }
 
@@ -63,6 +78,8 @@ enum class SensorKey(
             ACCELEROMETER, GYROSCOPE -> 50.0
             MAGNETOMETER -> 25.0
             TEMPERATURE, HUMIDITY, PRESSURE -> 1.0   // 1 s default interval
+            PRESSURE_STREAMED, ALTITUDE -> 25.0
+            AMBIENT_LIGHT -> 2.0                     // LTR329 default 500 ms
             else -> 100.0
         }
 
@@ -105,6 +122,9 @@ enum class SensorKey(
             TEMPERATURE -> AxisStyle("°C", null, listOf("value"), 1)
             HUMIDITY -> AxisStyle("%", 0f..100f, listOf("value"), 1)
             PRESSURE -> AxisStyle("Pa", null, listOf("value"), 1)
+            PRESSURE_STREAMED -> AxisStyle("Pa", null, listOf("value"), 1)
+            ALTITUDE -> AxisStyle("m", null, listOf("value"), 1)
+            AMBIENT_LIGHT -> AxisStyle("lux", null, listOf("value"), 1)
         }
 }
 

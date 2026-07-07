@@ -455,6 +455,9 @@ class DemoBleTransport(
                 byModule[0x12]?.minOrNull()?.let { id ->
                     add(EnvProducer(id) { t -> ((101_325.0 + 14.0 * sin(t * 0.3)) * 256).toLong() })
                 }
+                byModule[0x14]?.minOrNull()?.let { id ->   // ambient light (milli-lux)
+                    add(EnvProducer(id) { t -> ((320.0 + 90.0 * sin(t * 0.5)) * 1000).toLong() })
+                }
             }
         }
         if (cartesianPair.size < 2 && envProducers.isEmpty()) {

@@ -96,6 +96,7 @@ fun LoggingScreen() {
                         modules = modules,
                         selections = selections,
                         onSelectionsChange = { selections = it },
+                        loggingMode = true,   // hides stream-only altitude
                     )
                 }
                 item {

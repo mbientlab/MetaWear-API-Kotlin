@@ -38,27 +38,32 @@ fun availableSensors(modules: Map<Module, ModuleInfo>): List<SensorKey> {
             SensorKey.MAGNETOMETER -> has(Module.MAGNETOMETER)
             SensorKey.TEMPERATURE -> has(Module.TEMPERATURE)
             SensorKey.HUMIDITY -> has(Module.HUMIDITY)
-            SensorKey.PRESSURE -> has(Module.BAROMETER)
+            SensorKey.PRESSURE, SensorKey.PRESSURE_STREAMED, SensorKey.ALTITUDE -> has(Module.BAROMETER)
+            SensorKey.AMBIENT_LIGHT -> has(Module.AMBIENT_LIGHT)
             else -> has(Module.SENSOR_FUSION)
         }
     }
 }
 
 /**
- * Multi-select sensor picker with per-sensor rate/range chips (motion/fusion)
- * or polling-interval chips (environmental), plus the bandwidth advisory.
+ * Multi-select sensor picker with per-sensor rate/range chips (streamed) or
+ * polling-interval chips (polled readables), plus the bandwidth advisory.
  * Shared by the live-stream and logging screens (port of `SensorConfigView` +
  * `SensorPickerSection`).
+ *
+ * @param loggingMode hides stream-only signals (altitude) that can't be
+ *   captured to flash.
  */
 @Composable
 fun SensorConfigSection(
     modules: Map<Module, ModuleInfo>,
     selections: List<SensorSelection>,
     onSelectionsChange: (List<SensorSelection>) -> Unit,
+    loggingMode: Boolean = false,
 ) {
-    val available = availableSensors(modules)
-    val motion = available.filterNot { it.isPolled }
-    val environmental = available.filter { it.isPolled }
+    val available = availableSensors(modules).filter { !loggingMode || it.canLog }
+    val motion = available.filterNot { it.isEnvironmental }
+    val environmental = available.filter { it.isEnvironmental }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (motion.isNotEmpty()) {
@@ -69,7 +74,7 @@ fun SensorConfigSection(
         }
 
         if (environmental.isNotEmpty()) {
-            SectionHeader("Environmental (polled)")
+            SectionHeader("Environmental")
             environmental.forEach { key ->
                 SensorCard(key, selections, onSelectionsChange)
             }

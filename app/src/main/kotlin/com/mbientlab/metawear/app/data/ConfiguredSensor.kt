@@ -11,6 +11,7 @@ import com.mbientlab.metawear.model.CorrectedCartesianFloat
 import com.mbientlab.metawear.model.DeviceInformation
 import com.mbientlab.metawear.model.EulerAngles
 import com.mbientlab.metawear.model.LoggedSample
+import com.mbientlab.metawear.model.MetaWearException
 import com.mbientlab.metawear.model.ModuleInfo
 import com.mbientlab.metawear.model.Quaternion
 import com.mbientlab.metawear.persistence.CartesianFloatPersistable
@@ -27,7 +28,11 @@ import com.mbientlab.metawear.protocol.Pollable
 import com.mbientlab.metawear.protocol.PolledLoggable
 import com.mbientlab.metawear.protocol.PolledLogger
 import com.mbientlab.metawear.protocol.PolledLoggerHandles
+import com.mbientlab.metawear.protocol.Streamable
+import com.mbientlab.metawear.recoverLoggers
 import com.mbientlab.metawear.sensor.Accelerometer
+import com.mbientlab.metawear.sensor.Altimeter
+import com.mbientlab.metawear.sensor.AmbientLight
 import com.mbientlab.metawear.sensor.Barometer
 import com.mbientlab.metawear.sensor.Gyroscope
 import com.mbientlab.metawear.sensor.Humidity
@@ -80,6 +85,26 @@ sealed interface ConfiguredSensor {
     data class CorrectedKind(
         override val selection: SensorSelection,
         val sensor: Loggable<CorrectedCartesianFloat>,
+    ) : ConfiguredSensor
+
+    /**
+     * Streamed scalar signal (barometer pressure, altitude). [loggable] is
+     * `null` for stream-only signals (altitude), whose logging attempts fail
+     * with a clear error.
+     */
+    class FloatKind(
+        override val selection: SensorSelection,
+        val stream: Streamable<Float>,
+        val loggable: Loggable<Float>?,
+    ) : ConfiguredSensor
+
+    /**
+     * LTR329 ambient light — streams/logs raw milli-lux `Long`s, surfaced to
+     * the app as lux `Float`s.
+     */
+    class IlluminanceKind(
+        override val selection: SensorSelection,
+        val sensor: AmbientLight,
     ) : ConfiguredSensor
 
     /**
@@ -169,7 +194,33 @@ sealed interface ConfiguredSensor {
                         teardownCommands = listOf(barometer.stopCommand),
                     )
                 }
+                SensorKey.PRESSURE_STREAMED -> {
+                    val barometer = Barometer(standbyTime = barometerStandbyFor(selection.hz))
+                    FloatKind(selection, stream = barometer, loggable = barometer)
+                }
+                SensorKey.ALTITUDE -> FloatKind(
+                    selection,
+                    stream = Altimeter(Barometer(standbyTime = barometerStandbyFor(selection.hz))),
+                    loggable = null,   // stream-only: no SDK Loggable conformance
+                )
+                SensorKey.AMBIENT_LIGHT -> IlluminanceKind(
+                    selection,
+                    AmbientLight(measurementRate = lightRateFor(selection.hz)),
+                )
             }
+        }
+
+        /** Nominal Hz → BMP280 standby time (~1 / 8 / 25 Hz notifications). Pure — unit-tested. */
+        fun barometerStandbyFor(hz: Double): Barometer.BmpStandbyTime = when {
+            hz <= 2.0 -> Barometer.BmpStandbyTime.MS1000
+            hz <= 12.0 -> Barometer.BmpStandbyTime.MS125
+            else -> Barometer.BmpStandbyTime.MS0_5
+        }
+
+        /** Nominal Hz → LTR329 measurement rate (nearest period). Pure — unit-tested. */
+        fun lightRateFor(hz: Double): AmbientLight.MeasurementRate {
+            val periodMs = 1000.0 / hz
+            return AmbientLight.MeasurementRate.entries.minByOrNull { abs(it.milliseconds - periodMs) }!!
         }
 
         /**
@@ -197,6 +248,10 @@ suspend fun ConfiguredSensor.openStream(device: MetaWearDevice): Flow<AnyChartSa
     is ConfiguredSensor.QuaternionKind -> device.startStream(sensor).map { AnyChartSample.from(it) }
     is ConfiguredSensor.EulerKind -> device.startStream(sensor).map { AnyChartSample.from(it) }
     is ConfiguredSensor.CorrectedKind -> device.startStream(sensor).map { AnyChartSample.from(it) }
+    is ConfiguredSensor.FloatKind ->
+        device.startStream(stream).map { AnyChartSample.of(it.time, it.value, channelCount = 1) }
+    is ConfiguredSensor.IlluminanceKind ->
+        device.startStream(sensor).map { AnyChartSample.of(it.time, AmbientLight.lux(it.value), channelCount = 1) }
     is ConfiguredSensor.PolledKind -> {
         for (cmd in prepareCommands) device.send(RawCommand(cmd))
         device.poll(pollable, every = periodMs.milliseconds)
@@ -209,6 +264,8 @@ suspend fun ConfiguredSensor.stopStream(device: MetaWearDevice) = when (this) {
     is ConfiguredSensor.QuaternionKind -> device.stopStreaming(sensor)
     is ConfiguredSensor.EulerKind -> device.stopStreaming(sensor)
     is ConfiguredSensor.CorrectedKind -> device.stopStreaming(sensor)
+    is ConfiguredSensor.FloatKind -> device.stopStreaming(stream)
+    is ConfiguredSensor.IlluminanceKind -> device.stopStreaming(sensor)
     is ConfiguredSensor.PolledKind -> {
         // The poll loop stops when its collecting coroutine is cancelled;
         // only the prepared hardware (barometer cyclic mode) needs stopping.
@@ -240,6 +297,17 @@ suspend fun ConfiguredSensor.startLoggingOn(device: MetaWearDevice): PolledLogge
         device.startLogging(sensor)
         null
     }
+    is ConfiguredSensor.FloatKind -> {
+        val target = loggable ?: throw MetaWearException.InvalidState(
+            "${selection.key.title} is stream-only and cannot be logged",
+        )
+        device.startLogging(target)
+        null
+    }
+    is ConfiguredSensor.IlluminanceKind -> {
+        device.startLogging(sensor)
+        null
+    }
     is ConfiguredSensor.PolledKind -> {
         for (cmd in prepareCommands) device.send(RawCommand(cmd))
         device.startLogging(logger)
@@ -256,11 +324,31 @@ suspend fun ConfiguredSensor.stopLoggingOn(device: MetaWearDevice, handles: Poll
         is ConfiguredSensor.QuaternionKind -> device.stopLogging(sensor)
         is ConfiguredSensor.EulerKind -> device.stopLogging(sensor)
         is ConfiguredSensor.CorrectedKind -> device.stopLogging(sensor)
+        is ConfiguredSensor.FloatKind -> loggable?.let { device.stopLogging(it) } ?: Unit
+        is ConfiguredSensor.IlluminanceKind -> device.stopLogging(sensor)
         is ConfiguredSensor.PolledKind -> {
             if (handles != null) device.stopLogging(logger, handles)
             for (cmd in teardownCommands) device.send(RawCommand(cmd))
         }
     }
+
+/**
+ * Rebuild the device's in-memory logger registry from the board's active
+ * trigger table — required before decoding a download when the app process
+ * restarted since `startLogging` (the registry doesn't survive process death;
+ * the board-side triggers do).
+ */
+suspend fun ConfiguredSensor.recoverLoggersOn(device: MetaWearDevice) {
+    when (this) {
+        is ConfiguredSensor.CartesianKind -> device.recoverLoggers(sensor)
+        is ConfiguredSensor.QuaternionKind -> device.recoverLoggers(sensor)
+        is ConfiguredSensor.EulerKind -> device.recoverLoggers(sensor)
+        is ConfiguredSensor.CorrectedKind -> device.recoverLoggers(sensor)
+        is ConfiguredSensor.FloatKind -> loggable?.let { device.recoverLoggers(it) }
+        is ConfiguredSensor.IlluminanceKind -> device.recoverLoggers(sensor)
+        is ConfiguredSensor.PolledKind -> device.recoverLoggers(logger)
+    }
+}
 
 /**
  * Decode this sensor's samples from an already-drained raw entry list and
@@ -284,13 +372,38 @@ suspend fun ConfiguredSensor.decodeAndSave(
             label = selection.displayLabel,
         )
     }
+
+    // The registry entry is present when startLogging ran in this process;
+    // after a process restart it must be recovered from the board's trigger
+    // table before the entries can be decoded.
+    suspend fun <S> decodeWithRecovery(decode: () -> List<LoggedSample<S>>): List<LoggedSample<S>> =
+        try {
+            decode()
+        } catch (e: MetaWearException.InvalidState) {
+            recoverLoggersOn(device)
+            decode()
+        }
+
     return when (this) {
-        is ConfiguredSensor.CartesianKind -> save(device.decodeEntries(entries, sensor), CartesianFloatPersistable)
-        is ConfiguredSensor.QuaternionKind -> save(device.decodeEntries(entries, sensor), QuaternionPersistable)
-        is ConfiguredSensor.EulerKind -> save(device.decodeEntries(entries, sensor), EulerAnglesPersistable)
+        is ConfiguredSensor.CartesianKind ->
+            save(decodeWithRecovery { device.decodeEntries(entries, sensor) }, CartesianFloatPersistable)
+        is ConfiguredSensor.QuaternionKind ->
+            save(decodeWithRecovery { device.decodeEntries(entries, sensor) }, QuaternionPersistable)
+        is ConfiguredSensor.EulerKind ->
+            save(decodeWithRecovery { device.decodeEntries(entries, sensor) }, EulerAnglesPersistable)
         is ConfiguredSensor.CorrectedKind ->
-            save(device.decodeEntries(entries, sensor), CorrectedCartesianFloatPersistable)
-        is ConfiguredSensor.PolledKind -> save(device.decodeEntries(entries, logger), FloatPersistable)
+            save(decodeWithRecovery { device.decodeEntries(entries, sensor) }, CorrectedCartesianFloatPersistable)
+        is ConfiguredSensor.FloatKind -> {
+            val target = loggable ?: return null
+            save(decodeWithRecovery { device.decodeEntries(entries, target) }, FloatPersistable)
+        }
+        is ConfiguredSensor.IlluminanceKind -> save(
+            decodeWithRecovery { device.decodeEntries(entries, sensor) }
+                .map { LoggedSample(it.date, it.tickMs, AmbientLight.lux(it.value)) },
+            FloatPersistable,
+        )
+        is ConfiguredSensor.PolledKind ->
+            save(decodeWithRecovery { device.decodeEntries(entries, logger) }, FloatPersistable)
     }
 }
 
@@ -331,6 +444,8 @@ suspend fun ConfiguredSensor.saveLiveBuffer(
             save(EulerAnglesPersistable) { EulerAngles(it.f0, it.f1, it.f2, it.f3) }
         is ConfiguredSensor.CorrectedKind ->
             save(CorrectedCartesianFloatPersistable) { CorrectedCartesianFloat(it.f0, it.f1, it.f2, it.f3.toInt()) }
+        is ConfiguredSensor.FloatKind -> save(FloatPersistable) { it.f0 }
+        is ConfiguredSensor.IlluminanceKind -> save(FloatPersistable) { it.f0 }
         is ConfiguredSensor.PolledKind -> save(FloatPersistable) { it.f0 }
     }
 }

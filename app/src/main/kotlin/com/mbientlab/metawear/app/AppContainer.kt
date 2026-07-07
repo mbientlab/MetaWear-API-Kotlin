@@ -40,8 +40,13 @@ class AppContainer(context: Context) {
         RememberedDeviceStore(appContext.getSharedPreferences("metawear_app", Context.MODE_PRIVATE))
     }
 
-    /** In-memory log-session records pending download. */
-    val logSessions = LogSessionRegistry()
+    /**
+     * Log-session records pending download — prefs-backed so pending sessions
+     * (including board-allocated polled-logger handles) survive process death.
+     */
+    val logSessions: LogSessionRegistry by lazy {
+        LogSessionRegistry(appContext.getSharedPreferences("metawear_app", Context.MODE_PRIVATE))
+    }
 
     /** Identifier of the device the detail screens operate on. */
     val activeDeviceId = MutableStateFlow<String?>(null)

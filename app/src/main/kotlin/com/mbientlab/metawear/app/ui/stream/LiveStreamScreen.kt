@@ -29,6 +29,7 @@ import com.mbientlab.metawear.app.ui.appViewModel
 import com.mbientlab.metawear.app.ui.components.ErrorBanner
 import com.mbientlab.metawear.app.ui.components.GlassCard
 import com.mbientlab.metawear.app.ui.components.LineChart
+import com.mbientlab.metawear.app.ui.components.QuaternionCubeView
 import com.mbientlab.metawear.app.ui.theme.ChannelColors
 import com.mbientlab.metawear.app.ui.theme.FourChannelColors
 import com.mbientlab.metawear.app.ui.theme.GlassTextDim
@@ -150,6 +151,11 @@ private fun ChannelCard(channel: Channel) {
                 color = GlassTextDim,
             )
         } else {
+            // Live 3D orientation cube for the quaternion output — the
+            // dependency-free stand-in for the Swift RealityKit view.
+            if (channel.selection.key == SensorKey.FUSION_QUATERNION && latest != null) {
+                QuaternionCubeView(w = latest.f0, x = latest.f1, y = latest.f2, z = latest.f3)
+            }
             LineChart(
                 samples = ui.displayBuffer,
                 channelCount = style.chartChannels,
