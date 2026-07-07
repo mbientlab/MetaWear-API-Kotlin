@@ -194,17 +194,25 @@ Swift repo), lean but feature-complete:
   (name, RSSI), remembered devices persisted by MAC.
 - **Device hub** — connection state badge, model/firmware/battery summary,
   identify (LED flash), reconnect/disconnect, feature navigation.
-- **Live stream** — multi-sensor picker (accelerometer, gyroscope,
-  magnetometer, and all seven sensor-fusion outputs, with ODR/range chips and
-  a 100 Hz BLE bandwidth advisor), a dependency-free Canvas line chart, live
-  xyz readout, and true effective-Hz. Port of the Swift `Channel` hot-path
-  pattern: samples ingest into plain ring buffers on a background coroutine
-  (full-resolution capture + 1-in-N decimated display ring) and a ~33 ms
-  ticker snapshots into Compose state — nothing touches UI state at sensor
-  rate. Stop archives each channel to session history; buffers export as CSV.
+- **Live stream** — multi-sensor picker with a "Motion & Fusion" section
+  (accelerometer, gyroscope, magnetometer, and all seven sensor-fusion
+  outputs, with ODR/range chips and a 100 Hz BLE bandwidth advisor) and an
+  "Environmental (polled)" section (temperature, humidity, barometer
+  pressure, with a 1 s–5 m polling-interval picker). Streamed sensors get a
+  dependency-free Canvas line chart, live xyz readout, and true effective-Hz;
+  polled sensors get a latest-value readout tile (fed by `device.poll`
+  one-shot reads) plus the same chart over recent readings. Port of the
+  Swift `Channel` hot-path pattern: samples ingest into plain ring buffers on
+  a background coroutine (full-resolution capture + 1-in-N decimated display
+  ring) and a ~33 ms ticker snapshots into Compose state — nothing touches UI
+  state at sensor rate. Stop archives each channel to session history;
+  buffers export as CSV.
 - **Logging** — start/stop multi-sensor flash logging, elapsed clock, then a
   single raw download drain with progress, per-sensor typed decode, and
-  persistence via `PersistenceStore`.
+  persistence via `PersistenceStore`. Environmental sensors log through the
+  SDK's polled timer → event → logger chain (`PolledLogger`), with the
+  board-allocated handles kept on the session record for teardown; their
+  sessions decode to `Float` samples and export through the same CSV path.
 - **Sessions** — history list (label, sample count, time span) with
   `epoch,elapsed_ms,…` CSV export shared through the system sheet
   (FileProvider + `ACTION_SEND`) and delete.
@@ -216,17 +224,19 @@ Swift repo), lean but feature-complete:
   state/progress UI.
 - **Demo mode** — `DemoBleTransport`, a protocol-level MetaMotion S emulator
   (port of the Swift `DemoBLETransport`): module discovery, device-info /
-  battery / MAC / log reads, synthetic waveforms on every sensor including
-  packed registers and fusion outputs, and a full logging round trip. The
-  scan screen offers it via a toggle (and suggests it when Bluetooth is off),
-  so the entire app runs on an emulator with no hardware. The demo pipeline is
-  exercised end-to-end by JVM unit tests through the real `MetaWearDevice`.
+  battery / MAC / temperature / humidity / pressure / log reads, synthetic
+  waveforms on every sensor including packed registers and fusion outputs,
+  and full logging round trips — both streamed and the polled timer/event
+  chain (trigger acks + replayed readout). The scan screen offers it via a
+  toggle (and suggests it when Bluetooth is off), so the entire app runs on
+  an emulator with no hardware. The demo pipeline is exercised end-to-end by
+  JVM unit tests through the real `MetaWearDevice`.
 
-Deliberate cuts vs the Swift app: environmental sensors (barometer,
-temperature, humidity, ambient light) and their polled loggers; iCloud device
-sync and the peripheral-UUID/MAC reconciliation (Android's identifier *is*
-the MAC); pending log-session records don't survive process death (the SDK's
-`recoverLoggers` covers that path at the API level).
+Deliberate cuts vs the Swift app: ambient light; environmental sensors are
+polled readouts only (no streamed barometer/altimeter charting); iCloud
+device sync and the peripheral-UUID/MAC reconciliation (Android's identifier
+*is* the MAC); pending log-session records don't survive process death (the
+SDK's `recoverLoggers` covers that path at the API level).
 
 Install on a device or emulator:
 

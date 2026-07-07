@@ -1,6 +1,7 @@
 package com.mbientlab.metawear.app.data
 
 import com.mbientlab.metawear.app.core.SensorSelection
+import com.mbientlab.metawear.protocol.PolledLoggerHandles
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,12 @@ data class LogSessionRecord(
     val selection: SensorSelection,
     val startDate: Instant,
     val status: Status = Status.RUNNING,
+    /**
+     * Board-allocated timer/event/logger IDs for polled (environmental)
+     * sessions — required to dismantle the on-board chain on stop. `null`
+     * for streamed sensors.
+     */
+    val polledHandles: PolledLoggerHandles? = null,
 ) {
     enum class Status {
         /** Logger active on the board. */

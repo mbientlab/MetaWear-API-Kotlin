@@ -83,11 +83,16 @@ class LogSessionViewModel(private val container: AppContainer) : ViewModel() {
                 val startedAt = Clock.System.now()
                 for (selection in selections) {
                     val sensor = ConfiguredSensor.make(selection, device.modules)
-                    sensor.startLoggingOn(device)
+                    // Polled (environmental) sensors return the board-side
+                    // timer/event/logger handles; keep them on the record so
+                    // stop() can dismantle the chain even after this VM is
+                    // recreated by navigation.
+                    val handles = sensor.startLoggingOn(device)
                     val record = LogSessionRecord(
                         deviceId = device.identifier,
                         selection = selection,
                         startDate = startedAt,
+                        polledHandles = handles,
                     )
                     activeSensors[record.id] = sensor
                     container.logSessions.add(record)
@@ -108,8 +113,9 @@ class LogSessionViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             _isBusy.value = true
             try {
+                val recordsById = container.logSessions.records.value.associateBy { it.id }
                 for ((recordId, sensor) in activeSensors) {
-                    runCatching { sensor.stopLoggingOn(device) }
+                    runCatching { sensor.stopLoggingOn(device, recordsById[recordId]?.polledHandles) }
                         .onFailure { _lastError.value = it.message }
                     container.logSessions.updateStatus(recordId, LogSessionRecord.Status.STOPPED)
                 }

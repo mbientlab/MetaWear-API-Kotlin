@@ -1,20 +1,25 @@
 package com.mbientlab.metawear.app
 
 import com.mbientlab.metawear.MetaWearDevice
+import com.mbientlab.metawear.app.data.PolledPressure
 import com.mbientlab.metawear.app.demo.DemoBleTransport
 import com.mbientlab.metawear.downloadLogs
 import com.mbientlab.metawear.model.CartesianFloat
 import com.mbientlab.metawear.model.LoggedSample
 import com.mbientlab.metawear.protocol.Module
+import com.mbientlab.metawear.protocol.PolledLogger
 import com.mbientlab.metawear.sensor.Accelerometer
+import com.mbientlab.metawear.sensor.Humidity
 import com.mbientlab.metawear.sensor.SensorFusionChip
 import com.mbientlab.metawear.sensor.SensorFusionMode
 import com.mbientlab.metawear.sensor.SensorFusionQuaternion
 import com.mbientlab.metawear.sensor.Settings
+import com.mbientlab.metawear.sensor.Thermometer
 import com.mbientlab.metawear.startLogging
 import com.mbientlab.metawear.stopLogging
 import kotlin.math.abs
 import kotlin.math.sqrt
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -144,6 +149,81 @@ class DemoBleTransportTest {
         samples.forEach { assertTrue(abs(it.value.z - 1f) < 0.1f) }
         // Ticks advance monotonically.
         assertTrue(samples.zipWithNext().all { (a, b) -> b.tickMs >= a.tickMs })
+
+        device.disconnect()
+    }
+
+    // ---- Polled (environmental) surface ----
+
+    @Test
+    fun `humidity and pressure one-shot reads answer plausible values`() = withDemoDevice { device ->
+        device.connect()
+
+        val humidity = device.read(Humidity()).value
+        assertTrue(abs(humidity - 45f) < 8f, "humidity $humidity should be ~45 %")
+
+        val pressure = device.read(PolledPressure()).value
+        assertTrue(abs(pressure - 101_325f) < 50f, "pressure $pressure should be ~1 atm")
+
+        device.disconnect()
+    }
+
+    @Test
+    fun `poll emits periodic thermometer readings for the live tile`() = withDemoDevice { device ->
+        device.connect()
+
+        val readings = device.poll(Thermometer(channel = 1), every = 50.milliseconds)
+            .take(3)
+            .toList()
+
+        assertEquals(3, readings.size)
+        readings.forEach { assertTrue(abs(it.value - 22.5f) < 1f, "temp ${it.value} should be ~22.5 °C") }
+        assertTrue(readings.zipWithNext().all { (a, b) -> b.time >= a.time })
+
+        device.disconnect()
+    }
+
+    @Test
+    fun `polled thermometer log round trip decodes via the timer-event chain`() = withDemoDevice { device ->
+        device.connect()
+
+        val logger = PolledLogger(Thermometer(channel = 1), periodMs = 1_000)
+        val handles = device.startLogging(logger)
+        assertEquals(1, handles.loggerIDs.size)   // one 2-byte chunk
+
+        delay(1_200)   // demo "records" while LOG_ENABLE is on
+        device.stopLogging(logger, handles)
+
+        var samples: List<LoggedSample<Float>> = emptyList()
+        var finalProgress = 0.0
+        device.downloadLogs(logger).collect { progress ->
+            samples = progress.data
+            finalProgress = progress.percentComplete
+        }
+
+        assertEquals(1.0, finalProgress, 1e-9)
+        assertTrue(samples.isNotEmpty(), "polled download should decode at least one sample")
+        samples.forEach { assertTrue(abs(it.value - 22.5f) < 1f, "temp ${it.value} should be ~22.5 °C") }
+        assertTrue(samples.zipWithNext().all { (a, b) -> b.tickMs >= a.tickMs })
+
+        device.disconnect()
+    }
+
+    @Test
+    fun `polled humidity log round trip decodes percent values`() = withDemoDevice { device ->
+        device.connect()
+
+        val logger = PolledLogger(Humidity(), periodMs = 1_000)
+        val handles = device.startLogging(logger)
+
+        delay(1_200)
+        device.stopLogging(logger, handles)
+
+        var samples: List<LoggedSample<Float>> = emptyList()
+        device.downloadLogs(logger).collect { samples = it.data }
+
+        assertTrue(samples.isNotEmpty(), "polled humidity download should decode samples")
+        samples.forEach { assertTrue(abs(it.value - 45f) < 8f, "humidity ${it.value} should be ~45 %") }
 
         device.disconnect()
     }

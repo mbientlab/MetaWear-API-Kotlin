@@ -268,6 +268,8 @@ class DemoBleTransport(
                 }
                 module == 0x12 && reg == 0x01 ->   // barometer pressure one-shot
                     emit(listOf(0x12, register) + le32(pressureRaw()))
+                module == 0x16 && reg == 0x01 ->   // BME280 humidity one-shot (% × 1024)
+                    emit(listOf(0x16, register) + le32(humidityRaw(elapsed())))
                 module == 0x14 && reg == 0x03 -> { // ambient light one-shot (milli-lux)
                     val milliLux = ((320.0 + 90.0 * sin(elapsed() * 0.5)) * 1000).toLong()
                     emit(listOf(0x14, register) + le32(milliLux))
@@ -288,7 +290,7 @@ class DemoBleTransport(
             0x0A to listOf(0, 0, 0x1C), 0x0B to listOf(0, 3, 0x08) + le32(0x0400_0000L) + listOf(0x04, 0x00),
             0x0C to listOf(0, 0, 8), 0x0D to listOf(0, 1), 0x0F to listOf(0, 2),
             0x11 to listOf(0, 10, 0x03, 0x00), 0x12 to listOf(0, 0), 0x13 to listOf(1, 0),
-            0x14 to listOf(0, 0), 0x15 to listOf(0, 2),
+            0x14 to listOf(0, 0), 0x15 to listOf(0, 2), 0x16 to listOf(0, 0),
             0x19 to listOf(0, 3, 0, 0, 0, 0, 0, 0, 0, 0), 0xFE to listOf(0, 6),
         )
         val extra = info[module]
@@ -424,16 +426,41 @@ class DemoBleTransport(
     }
 
     private suspend fun performLogReadout(count: Long) {
-        // Generalised from the Swift original (accel-or-temperature) to any
-        // 2-chunk cartesian logger pair, so gyro/mag logging demos too.
+        // Generalised from the Swift original (accel-or-temperature): replays
+        // any 2-chunk cartesian logger pair (accel/gyro/mag) plus every
+        // single-chunk environmental logger — temperature (Int16 °C × 8),
+        // humidity (UInt32 % × 1024), pressure (UInt32 Pa × 256) — so both
+        // streamed and polled logging round-trip in demo mode.
+        class EnvProducer(val loggerId: Int, val rawData: (Double) -> Long)
+
         val cartesianPair: List<Int>
-        val tempLogger: Int?
+        val envProducers: List<EnvProducer>
         synchronized(lock) {
             val byModule = loggers.entries.groupBy({ it.value.module }, { it.key })
             cartesianPair = listOf(0x03, 0x13, 0x15)
                 .firstNotNullOfOrNull { m -> byModule[m]?.takeIf { it.size >= 2 } }
                 ?.sorted() ?: emptyList()
-            tempLogger = byModule[0x04]?.minOrNull()
+            envProducers = buildList {
+                byModule[0x04]?.minOrNull()?.let { id ->
+                    add(
+                        EnvProducer(id) { t ->
+                            val celsius = 22.5 + 0.4 * sin(t * 0.4)
+                            (celsius * 8).toLong() and 0xFFFF
+                        },
+                    )
+                }
+                byModule[0x16]?.minOrNull()?.let { id ->
+                    add(EnvProducer(id) { t -> humidityRaw(t) })
+                }
+                byModule[0x12]?.minOrNull()?.let { id ->
+                    add(EnvProducer(id) { t -> ((101_325.0 + 14.0 * sin(t * 0.3)) * 256).toLong() })
+                }
+            }
+        }
+        if (cartesianPair.size < 2 && envProducers.isEmpty()) {
+            emit(listOf(0x0B, 0x0D))
+            emit(listOf(0x0B, 0x08) + le32(0))
+            return
         }
 
         var remaining = count
@@ -441,23 +468,21 @@ class DemoBleTransport(
         var sampleIndex = 0
         while (remaining > 0) {
             val t = sampleIndex / 25.0
-            val packet: List<Int>
             if (cartesianPair.size >= 2) {
                 val s = accelRaw(t)
                 val xy = le16(s.first) + le16(s.second)
                 val zp = le16(s.third) + listOf(0, 0)
-                packet = listOf(0x0B, 0x07, cartesianPair[0]) + le32(tick) + xy +
-                    listOf(cartesianPair[1]) + le32(tick) + zp
+                emit(
+                    listOf(0x0B, 0x07, cartesianPair[0]) + le32(tick) + xy +
+                        listOf(cartesianPair[1]) + le32(tick) + zp,
+                )
                 remaining = if (remaining >= 2) remaining - 2 else 0
-            } else if (tempLogger != null) {
-                val celsius = 22.5 + 0.4 * sin(t * 0.4)
-                val raw = le16((celsius * 8).toInt()) + listOf(0, 0)
-                packet = listOf(0x0B, 0x07, tempLogger) + le32(tick) + raw
-                remaining -= 1
-            } else {
-                break
             }
-            emit(packet)
+            for (producer in envProducers) {
+                if (remaining <= 0) break
+                emit(listOf(0x0B, 0x07, producer.loggerId) + le32(tick) + le32(producer.rawData(t)))
+                remaining -= 1
+            }
             tick += (1.0 / 25.0 * 1000.0 / 1.46484375).toLong()
             sampleIndex += 1
             if (sampleIndex % 40 == 0) {
@@ -500,6 +525,9 @@ class DemoBleTransport(
     }
 
     private fun pressureRaw(): Long = ((101_325.0 + 14.0 * sin(elapsed() * 0.3)) * 256).toLong()
+
+    /** BME280 humidity raw value: (45 ± 6) % × 1024. */
+    private fun humidityRaw(t: Double): Long = ((45.0 + 6.0 * sin(t * 0.3)) * 1024).toLong()
 
     // ---- Byte helpers (values as unsigned ints 0..255) ----
 

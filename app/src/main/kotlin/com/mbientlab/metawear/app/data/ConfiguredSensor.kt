@@ -16,14 +16,21 @@ import com.mbientlab.metawear.model.Quaternion
 import com.mbientlab.metawear.persistence.CartesianFloatPersistable
 import com.mbientlab.metawear.persistence.CorrectedCartesianFloatPersistable
 import com.mbientlab.metawear.persistence.EulerAnglesPersistable
+import com.mbientlab.metawear.persistence.FloatPersistable
 import com.mbientlab.metawear.persistence.Persistable
 import com.mbientlab.metawear.persistence.PersistenceStore
 import com.mbientlab.metawear.persistence.QuaternionPersistable
 import com.mbientlab.metawear.persistence.SessionSnapshot
 import com.mbientlab.metawear.protocol.Loggable
 import com.mbientlab.metawear.protocol.Module
+import com.mbientlab.metawear.protocol.Pollable
+import com.mbientlab.metawear.protocol.PolledLoggable
+import com.mbientlab.metawear.protocol.PolledLogger
+import com.mbientlab.metawear.protocol.PolledLoggerHandles
 import com.mbientlab.metawear.sensor.Accelerometer
+import com.mbientlab.metawear.sensor.Barometer
 import com.mbientlab.metawear.sensor.Gyroscope
+import com.mbientlab.metawear.sensor.Humidity
 import com.mbientlab.metawear.sensor.Magnetometer
 import com.mbientlab.metawear.sensor.SensorFusionChip
 import com.mbientlab.metawear.sensor.SensorFusionCorrectedAcc
@@ -34,10 +41,13 @@ import com.mbientlab.metawear.sensor.SensorFusionGravity
 import com.mbientlab.metawear.sensor.SensorFusionLinearAcceleration
 import com.mbientlab.metawear.sensor.SensorFusionMode
 import com.mbientlab.metawear.sensor.SensorFusionQuaternion
+import com.mbientlab.metawear.sensor.Thermometer
+import com.mbientlab.metawear.sensor.ThermometerSource
 import com.mbientlab.metawear.startLogging
 import com.mbientlab.metawear.stopLogging
 import kotlin.math.abs
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Instant
@@ -71,6 +81,24 @@ sealed interface ConfiguredSensor {
         override val selection: SensorSelection,
         val sensor: Loggable<CorrectedCartesianFloat>,
     ) : ConfiguredSensor
+
+    /**
+     * Timer-driven environmental readable (temperature / humidity / pressure).
+     * [readable] and [pollable] are the same object viewed through the two SDK
+     * interfaces; [prepareCommands]/[teardownCommands] bracket sensors that
+     * must be running for one-shot reads to return fresh data (the barometer's
+     * cyclic mode).
+     */
+    class PolledKind(
+        override val selection: SensorSelection,
+        val readable: PolledLoggable<Float>,
+        val pollable: Pollable<Float>,
+        val prepareCommands: List<ByteArray> = emptyList(),
+        val teardownCommands: List<ByteArray> = emptyList(),
+    ) : ConfiguredSensor {
+        val periodMs: Long get() = selection.effectivePollIntervalMs
+        val logger: PolledLogger<Float> get() = PolledLogger(readable, periodMs)
+    }
 
     companion object {
 
@@ -119,19 +147,61 @@ sealed interface ConfiguredSensor {
                     CorrectedKind(selection, SensorFusionCorrectedGyro(mode = fusionMode(), chip = fusionChip))
                 SensorKey.FUSION_CORRECTED_MAG ->
                     CorrectedKind(selection, SensorFusionCorrectedMag(mode = fusionMode(), chip = fusionChip))
+                SensorKey.TEMPERATURE -> {
+                    val thermometer = Thermometer(channel = thermometerChannel(modules))
+                    PolledKind(selection, readable = thermometer, pollable = thermometer)
+                }
+                SensorKey.HUMIDITY -> {
+                    val humidity = Humidity()
+                    PolledKind(selection, readable = humidity, pollable = humidity)
+                }
+                SensorKey.PRESSURE -> {
+                    // One-shot pressure reads return stale zeros unless the
+                    // BMP280/BME280 is sampling — bracket the poll/log with
+                    // the barometer's cyclic start/stop.
+                    val pressure = PolledPressure()
+                    val barometer = Barometer()
+                    PolledKind(
+                        selection,
+                        readable = pressure,
+                        pollable = pressure,
+                        prepareCommands = barometer.configureCommands + listOf(barometer.startCommand),
+                        teardownCommands = listOf(barometer.stopCommand),
+                    )
+                }
             }
+        }
+
+        /**
+         * Best temperature channel for the board: the module-info extra bytes
+         * list each channel's source; prefer the on-board preset thermistor,
+         * fall back to the nRF die (channel 0). Pure — unit-tested.
+         */
+        fun thermometerChannel(modules: Map<Module, ModuleInfo>): Int {
+            val sources = modules[Module.TEMPERATURE]?.extra ?: return 0
+            val preset = sources.indexOfFirst { it == ThermometerSource.PRESET_THERMISTOR.raw }
+            return if (preset >= 0) preset else 0
         }
     }
 }
 
-// ---- Streaming ----
+// ---- Streaming / live polling ----
 
-/** Start streaming and surface every typed sample as an [AnyChartSample]. */
+/**
+ * Start producing live samples as [AnyChartSample]: BLE streaming for streamed
+ * kinds; host-side `device.poll` one-shot reads for polled kinds (state stays
+ * Idle — polling isn't a board-side stream).
+ */
 suspend fun ConfiguredSensor.openStream(device: MetaWearDevice): Flow<AnyChartSample> = when (this) {
     is ConfiguredSensor.CartesianKind -> device.startStream(sensor).map { AnyChartSample.from(it) }
     is ConfiguredSensor.QuaternionKind -> device.startStream(sensor).map { AnyChartSample.from(it) }
     is ConfiguredSensor.EulerKind -> device.startStream(sensor).map { AnyChartSample.from(it) }
     is ConfiguredSensor.CorrectedKind -> device.startStream(sensor).map { AnyChartSample.from(it) }
+    is ConfiguredSensor.PolledKind -> {
+        for (cmd in prepareCommands) device.send(RawCommand(cmd))
+        device.poll(pollable, every = periodMs.milliseconds)
+            .map { AnyChartSample.of(it.time, it.value, channelCount = 1) }
+    }
 }
 
 suspend fun ConfiguredSensor.stopStream(device: MetaWearDevice) = when (this) {
@@ -139,23 +209,58 @@ suspend fun ConfiguredSensor.stopStream(device: MetaWearDevice) = when (this) {
     is ConfiguredSensor.QuaternionKind -> device.stopStreaming(sensor)
     is ConfiguredSensor.EulerKind -> device.stopStreaming(sensor)
     is ConfiguredSensor.CorrectedKind -> device.stopStreaming(sensor)
+    is ConfiguredSensor.PolledKind -> {
+        // The poll loop stops when its collecting coroutine is cancelled;
+        // only the prepared hardware (barometer cyclic mode) needs stopping.
+        for (cmd in teardownCommands) device.send(RawCommand(cmd))
+    }
 }
 
 // ---- Logging ----
 
-suspend fun ConfiguredSensor.startLoggingOn(device: MetaWearDevice) = when (this) {
-    is ConfiguredSensor.CartesianKind -> device.startLogging(sensor)
-    is ConfiguredSensor.QuaternionKind -> device.startLogging(sensor)
-    is ConfiguredSensor.EulerKind -> device.startLogging(sensor)
-    is ConfiguredSensor.CorrectedKind -> device.startLogging(sensor)
+/**
+ * Start on-device logging. Polled kinds build the on-board timer → event →
+ * logger chain and return its resource handles (persist them on the session
+ * record — `stopLoggingOn` needs them); streamed kinds return `null`.
+ */
+suspend fun ConfiguredSensor.startLoggingOn(device: MetaWearDevice): PolledLoggerHandles? = when (this) {
+    is ConfiguredSensor.CartesianKind -> {
+        device.startLogging(sensor)
+        null
+    }
+    is ConfiguredSensor.QuaternionKind -> {
+        device.startLogging(sensor)
+        null
+    }
+    is ConfiguredSensor.EulerKind -> {
+        device.startLogging(sensor)
+        null
+    }
+    is ConfiguredSensor.CorrectedKind -> {
+        device.startLogging(sensor)
+        null
+    }
+    is ConfiguredSensor.PolledKind -> {
+        for (cmd in prepareCommands) device.send(RawCommand(cmd))
+        device.startLogging(logger)
+    }
 }
 
-suspend fun ConfiguredSensor.stopLoggingOn(device: MetaWearDevice) = when (this) {
-    is ConfiguredSensor.CartesianKind -> device.stopLogging(sensor)
-    is ConfiguredSensor.QuaternionKind -> device.stopLogging(sensor)
-    is ConfiguredSensor.EulerKind -> device.stopLogging(sensor)
-    is ConfiguredSensor.CorrectedKind -> device.stopLogging(sensor)
-}
+/**
+ * Stop on-device logging. [handles] is required for polled kinds (dismantles
+ * the timer/event chain) and ignored for streamed kinds.
+ */
+suspend fun ConfiguredSensor.stopLoggingOn(device: MetaWearDevice, handles: PolledLoggerHandles? = null) =
+    when (this) {
+        is ConfiguredSensor.CartesianKind -> device.stopLogging(sensor)
+        is ConfiguredSensor.QuaternionKind -> device.stopLogging(sensor)
+        is ConfiguredSensor.EulerKind -> device.stopLogging(sensor)
+        is ConfiguredSensor.CorrectedKind -> device.stopLogging(sensor)
+        is ConfiguredSensor.PolledKind -> {
+            if (handles != null) device.stopLogging(logger, handles)
+            for (cmd in teardownCommands) device.send(RawCommand(cmd))
+        }
+    }
 
 /**
  * Decode this sensor's samples from an already-drained raw entry list and
@@ -185,6 +290,7 @@ suspend fun ConfiguredSensor.decodeAndSave(
         is ConfiguredSensor.EulerKind -> save(device.decodeEntries(entries, sensor), EulerAnglesPersistable)
         is ConfiguredSensor.CorrectedKind ->
             save(device.decodeEntries(entries, sensor), CorrectedCartesianFloatPersistable)
+        is ConfiguredSensor.PolledKind -> save(device.decodeEntries(entries, logger), FloatPersistable)
     }
 }
 
@@ -225,6 +331,7 @@ suspend fun ConfiguredSensor.saveLiveBuffer(
             save(EulerAnglesPersistable) { EulerAngles(it.f0, it.f1, it.f2, it.f3) }
         is ConfiguredSensor.CorrectedKind ->
             save(CorrectedCartesianFloatPersistable) { CorrectedCartesianFloat(it.f0, it.f1, it.f2, it.f3.toInt()) }
+        is ConfiguredSensor.PolledKind -> save(FloatPersistable) { it.f0 }
     }
 }
 

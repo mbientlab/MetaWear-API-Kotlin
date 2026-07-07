@@ -117,40 +117,66 @@ private fun ChannelCard(channel: Channel) {
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(channel.selection.displayLabel, style = MaterialTheme.typography.titleSmall)
-            Text(
-                String.format(Locale.US, "%.1f Hz", ui.effectiveHz),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-
-        LineChart(
-            samples = ui.displayBuffer,
-            channelCount = style.chartChannels,
-            colors = colors,
-            yRange = style.yRange,
-        )
-
-        // Live per-axis readout.
-        val latest = ui.latest
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            style.labels.take(style.chartChannels).forEachIndexed { index, label ->
+            if (!channel.selection.key.isPolled) {
                 Text(
-                    "$label ${latest?.let { String.format(Locale.US, "%+.3f", it.channel(index)) } ?: "—"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.getOrElse(index) { GlassTextDim },
+                    String.format(Locale.US, "%.1f Hz", ui.effectiveHz),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
-        Text(
-            "${ui.totalSamples} samples · plotting 1/${channel.displayStride}" +
-                (style.unit.takeIf { it.isNotEmpty() }?.let { " · $it" } ?: ""),
-            style = MaterialTheme.typography.labelSmall,
-            color = GlassTextDim,
-        )
+
+        val latest = ui.latest
+        if (channel.selection.key.isPolled) {
+            // Readout tile: one big current value plus the (trivially reused)
+            // chart of recent readings.
+            Text(
+                latest?.let { String.format(Locale.US, "%.2f %s", it.f0, style.unit) } ?: "waiting…",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            if (ui.displayBuffer.size >= 2) {
+                LineChart(
+                    samples = ui.displayBuffer,
+                    channelCount = 1,
+                    colors = colors,
+                    yRange = style.yRange,
+                )
+            }
+            Text(
+                "${ui.totalSamples} readings · every " +
+                    SensorSelection.formatPollInterval(channel.selection.effectivePollIntervalMs),
+                style = MaterialTheme.typography.labelSmall,
+                color = GlassTextDim,
+            )
+        } else {
+            LineChart(
+                samples = ui.displayBuffer,
+                channelCount = style.chartChannels,
+                colors = colors,
+                yRange = style.yRange,
+            )
+
+            // Live per-axis readout.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                style.labels.take(style.chartChannels).forEachIndexed { index, label ->
+                    Text(
+                        "$label ${latest?.let { String.format(Locale.US, "%+.3f", it.channel(index)) } ?: "—"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.getOrElse(index) { GlassTextDim },
+                    )
+                }
+            }
+            Text(
+                "${ui.totalSamples} samples · plotting 1/${channel.displayStride}" +
+                    (style.unit.takeIf { it.isNotEmpty() }?.let { " · $it" } ?: ""),
+                style = MaterialTheme.typography.labelSmall,
+                color = GlassTextDim,
+            )
+        }
         androidx.compose.material3.TextButton(onClick = {
             val csv = LiveBufferCsvExporter.export(channel.captureBuffer(), channel.selection)
             val filename = ExportFilename.make(

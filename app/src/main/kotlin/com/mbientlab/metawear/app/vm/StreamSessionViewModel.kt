@@ -96,8 +96,16 @@ class StreamSessionViewModel(private val container: AppContainer) : ViewModel() 
         for ((sensor, channel) in sensors) {
             val flow = sensor.openStream(device)
             streamJobs += viewModelScope.launch(Dispatchers.Default) {
-                flow.collect { sample ->
-                    if (!_isPaused.value) channel.ingest(sample)
+                try {
+                    flow.collect { sample ->
+                        if (!_isPaused.value) channel.ingest(sample)
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // BLE drop or a polled read timeout terminates the flow —
+                    // surface it instead of crashing the scope.
+                    _lastError.value = e.message ?: "Stream ended unexpectedly"
                 }
             }
         }
