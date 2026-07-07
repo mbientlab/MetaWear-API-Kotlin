@@ -58,10 +58,17 @@ Android adaptation to note: the Swift `ScanResult.identifier` is a CoreBluetooth
 `UUID`; on Android peripherals are identified by MAC address, so the seam uses
 an opaque `String`.
 
-All 22 Swift module files are ported. Known deferred items (they need the
-device-logging port): polled-loggable conformances, processor-handle logging,
-`factoryReset`, and log download/decode. The data-processor stream uses
-client-side processor-id filtering rather than the Swift per-id demux.
+All 22 Swift module files are ported, plus the full device-side logging
+surface: `startLogging`/`stopLogging` (including polled readables via the
+timer→event→logger chain and processor handles), `downloadLogs` with chunk
+reassembly and watchdog, `clearLog`/`flushLogPage`, logger/processor query and
+recovery, anonymous-signal reconstruction, `factoryReset`, board-state
+capture/restore, and `DataTable` CSV export. The only intentional behavioral
+deviation: the data-processor stream uses client-side processor-id filtering
+rather than the Swift per-id demux.
+
+**Test parity: 994 JVM tests vs 932 in the Swift package's no-hardware suite**
+(the Kotlin suite adds coverage for paths Swift only exercises on hardware).
 
 ## Build & test
 
