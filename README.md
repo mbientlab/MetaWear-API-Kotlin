@@ -20,7 +20,10 @@ metawear-android/
 ├── metawear-persistence/← Android library. Room-backed log-session storage:
 │                          PersistenceStore, session/sample records, CSV export.
 │                          JVM store tests + instrumented database tests.
-├── metawear-firmware/   ← (planned) Nordic Android DFU
+├── metawear-firmware/   ← Android library. Nordic-DFU firmware updates:
+│                          release-catalog client, bootloader interlock,
+│                          Flow-based DFU progress, MetaWearDevice extensions.
+│                          JVM unit tests (catalog/version/interlock logic).
 └── app/                 ← (planned) Jetpack Compose app
 ```
 
@@ -134,6 +137,48 @@ the fake can only mirror — the generated SQL's sort orders and counts, the
 foreign-key cascade, and the epoch-millis converter — against a real Room
 database on-device.
 
+## What's in `:metawear-firmware`
+
+Nordic-DFU firmware updates (`com.mbientlab.metawear.firmware`) — a port of
+the Swift `MetaWearFirmware` package on top of the
+[Nordic Android DFU Library](https://github.com/NordicSemiconductor/Android-DFU-Library):
+
+| Kotlin | Ported from (Swift) |
+|---|---|
+| `FirmwareServer`, `FirmwareFetcher` (+ `HttpUrlConnectionFetcher`) | `MWFirmwareServer.swift` |
+| `FirmwareCatalog` (hand-rolled JSON, like the BoardState codec) | `MWFirmwareCatalog.swift` |
+| `FirmwareBuild` | `MWFirmwareBuild.swift` |
+| `FirmwareException` (sealed, Swift-parity messages) | `MWFirmwareError.swift` |
+| `BootloaderInterlock` (pure flash-plan decision table) | `BootloaderInterlock.swift` |
+| `MetaWearVersion.kt` (dotted-numeric compare) | `String+MetaWearVersion.swift` |
+| `DFUProgress`, `DfuSession` (Flow over Nordic broadcasts) | `DFUProgress.swift`, `DFUSession.swift` |
+| `MetaBootProbe` (one-shot GATT bootloader-version read) | `MetaBootProbe.swift` |
+| `FirmwareUpdate.kt` — `checkForFirmwareUpdate` / `updateFirmware` / `updateFirmwareToLatest` extensions | `MetaWearDevice+DFU.swift` |
+
+Usage: connect, then collect `device.updateFirmwareToLatest(context)` — a cold
+`Flow<DFUProgress>` that walks catalog fetch → download → `[0xFE, 0x02]`
+bootloader handoff (`sendExpectingDisconnect`) → Nordic DFU, emitting progress
+the whole way; cancelling the collector aborts the transfer. An outdated
+bootloader automatically becomes a multi-stage flash (bootloader chain first),
+reported through `currentPart`/`totalParts`. When the flow completes, call
+`connect()` again — the board rebooted and local device state is stale.
+
+Android specifics:
+- The DFU transfer runs inside an Android service. The library declares
+  `MetaWearDfuService` (a `DfuBaseService` subclass) in its manifest, and
+  manifest merging carries the registration into your app — nothing to add
+  unless you subclass it for a foreground notification target, in which case
+  also create Nordic's notification channel via
+  `DfuServiceInitiator.createDfuNotificationChannel(context)` first.
+- Firmware updates need the same `BLUETOOTH_CONNECT` runtime permission as
+  the rest of the SDK.
+- The catalog JSON is parsed by a minimal hand-rolled parser (android.org.json
+  is stubbed out on the JVM unit-test classpath), keeping all 66 ported
+  firmware tests — version compare, catalog selection, server/mock-fetcher,
+  bootloader interlock — plain JVM unit tests. The `DfuSession` /
+  `MetaBootProbe` wrappers mirror the Swift package's stance: hardware-only,
+  no unit-test coverage.
+
 ## Build & test
 
 ```bash
@@ -141,6 +186,7 @@ database on-device.
 ./gradlew :metawear-core:assembleDebug               # Android transport library (AAR)
 ./gradlew :metawear-persistence:testDebugUnitTest    # ported persistence tests (JVM)
 ./gradlew :metawear-persistence:connectedAndroidTest # Room round-trips (needs a device)
+./gradlew :metawear-firmware:testDebugUnitTest       # ported firmware tests (JVM)
 ```
 
 Opens directly in Android Studio; the Kotlin toolchain targets JDK 21.

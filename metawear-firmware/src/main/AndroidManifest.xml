@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Nordic's DfuBaseService runs the DFU transfer as an Android service.
+         This registration is merged into the consuming app's manifest, so apps
+         only need their own declaration if they subclass MetaWearDfuService. -->
+    <application>
+        <service
+            android:name="com.mbientlab.metawear.firmware.MetaWearDfuService"
+            android:exported="false" />
+    </application>
+</manifest>

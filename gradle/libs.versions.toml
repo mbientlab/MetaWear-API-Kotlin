@@ -15,6 +15,8 @@ room = "2.8.4"
 # KSP >= 2.3.0 uses standalone versioning (decoupled from the Kotlin version)
 # and supports AGP 9's built-in Kotlin, which this repo relies on.
 ksp = "2.3.9"
+# Nordic Android DFU library (:metawear-firmware).
+nordicDfu = "2.9.0"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
@@ -36,6 +38,9 @@ junit4 = { module = "junit:junit", version.ref = "junit4" }
 # the KTX artifact merged into room-runtime in 2.7.
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+# Nordic Android DFU library — delegate/broadcast-based firmware flasher
+# wrapped into a Flow by :metawear-firmware's DfuSession.
+nordic-dfu = { module = "no.nordicsemi.android:dfu", version.ref = "nordicDfu" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
