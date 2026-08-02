@@ -21,7 +21,38 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// Miscellaneous readables: log length, log time, and MAC address.
+// Miscellaneous readables: logging enabled, log length, log time, and MAC address.
+
+// ---- LoggingEnabled — shape + parsing ----
+//
+// Byte contract for the logging-enabled readable — the signal that detects an
+// actively-logging board even when LOG_LENGTH reads 0 (MMS buffers the first
+// flash page in RAM).
+
+class LoggingEnabledTest {
+
+    @Test fun module_dataRegister() {
+        val r = LoggingEnabled()
+        assertEquals(Module.LOGGING, r.module)
+        assertEquals(0x01, r.dataRegister)
+    }
+
+    // [0x0B, 0x81] — Logging ENABLE (0x01) | READ (0x80)
+    @Test fun readCommand_hasReadBit() =
+        assertArrayEquals(bytes(0x0B, 0x81), LoggingEnabled().readCommand)
+
+    @Test fun parse_enabled() =
+        assertEquals(true, LoggingEnabled().parseSample(bytes(0x0B, 0x81, 0x01)))
+
+    @Test fun parse_disabled() =
+        assertEquals(false, LoggingEnabled().parseSample(bytes(0x0B, 0x81, 0x00)))
+
+    @Test fun parse_shortPacket_throws() {
+        val error = runCatching { LoggingEnabled().parseSample(bytes(0x0B, 0x81)) }.exceptionOrNull()
+        assertTrue(error is MetaWearException.OperationFailed)
+        assertEquals("Operation failed: Logging-enabled packet too short: 2 bytes", error?.message)
+    }
+}
 
 // ---- LogLength — shape + parsing ----
 

@@ -46,6 +46,12 @@ class PersistenceStore(private val dao: PersistenceDao) {
      * @param samples The typed logged samples returned by `downloadLogs`.
      * @param persistable The codec that packs [samples] into the flat record layout.
      * @param label Optional user-facing sensor + settings string for history lists.
+     * @param deviceName Display name of the board at capture time. Must be
+     *   stamped now or never — boards go off air and advertised-name caches
+     *   are per-host, so there is no retroactive path from [deviceID] to a
+     *   name.
+     * @param groupID Group-capture batch identifier, when several boards were
+     *   logged together. A batch only exists at capture time.
      * @return A [SessionSnapshot] describing the newly created session.
      * @throws PersistenceException.EmptySampleSet if [samples] is empty.
      */
@@ -56,6 +62,8 @@ class PersistenceStore(private val dao: PersistenceDao) {
         samples: List<LoggedSample<S>>,
         persistable: Persistable<S>,
         label: String? = null,
+        deviceName: String? = null,
+        groupID: String? = null,
     ): SessionSnapshot {
         if (samples.isEmpty()) throw PersistenceException.EmptySampleSet
 
@@ -69,6 +77,11 @@ class PersistenceStore(private val dao: PersistenceDao) {
             deviceModel = deviceInfo.modelNumber,
             deviceFirmware = deviceInfo.firmwareRevision,
             label = label,
+            // A missed advertisement can surface as "" — normalise here, at
+            // the single choke point, so readers' null-name fallbacks (serial
+            // keys, section titles) fire instead of rendering blank headers.
+            deviceName = deviceName?.takeIf { it.isNotEmpty() },
+            groupID = groupID,
         )
         val records = samples.map { logged ->
             val v = persistable.persistenceValues(logged.value)

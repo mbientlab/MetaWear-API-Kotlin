@@ -19,6 +19,12 @@ data class ScanResult(
     val rssi: Int,
     /** Raw manufacturer-specific data bytes, if present (iBeacon payloads etc.). */
     val manufacturerData: ByteArray? = null,
+    /**
+     * Advertised service UUID strings, as they appeared in the packet.
+     * MetaWear boards advertise their custom service UUID here regardless of
+     * how they've been renamed — the scanner's admission rule relies on it.
+     */
+    val serviceUUIDs: List<String> = emptyList(),
 ) {
     // ByteArray forces manual equals/hashCode for a data class.
     override fun equals(other: Any?): Boolean {
@@ -27,7 +33,8 @@ data class ScanResult(
         return identifier == other.identifier &&
             name == other.name &&
             rssi == other.rssi &&
-            manufacturerData.contentEquals(other.manufacturerData)
+            manufacturerData.contentEquals(other.manufacturerData) &&
+            serviceUUIDs == other.serviceUUIDs
     }
 
     override fun hashCode(): Int {
@@ -35,6 +42,7 @@ data class ScanResult(
         result = 31 * result + (name?.hashCode() ?: 0)
         result = 31 * result + rssi
         result = 31 * result + (manufacturerData?.contentHashCode() ?: 0)
+        result = 31 * result + serviceUUIDs.hashCode()
         return result
     }
 }

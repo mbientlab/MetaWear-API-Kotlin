@@ -180,6 +180,47 @@ class FactoryResetTest {
         assertEquals(DeviceState.Disconnected, device.state.value)
     }
 
+    // ---- restart ----
+
+    /**
+     * `restart()` is the unwedge for a misbehaving board when a factory reset
+     * would cost real data: the reboot pair goes out with NONE of the erase
+     * steps, so flash-resident data (log entries, macros) survives.
+     */
+    @Test
+    fun `restart emits only the reset pair`() = runTest {
+        val (device, transport) = connectedDevice()
+        val baseline = transport.writtenData.count { it.characteristic == Uuids.command }
+
+        device.restart()
+
+        val new = commandWrites(baseline, transport)
+        assertEquals(2, new.size)
+        assertArrayEquals(bytes(0xFE, 0x05), new[0]) // reset after GC
+        assertArrayEquals(bytes(0xFE, 0x01), new[1]) // immediate-reset fallback
+    }
+
+    @Test
+    fun `restart transitions to disconnected and clears volatile session state`() = runTest {
+        val (device, transport) = connectedDevice()
+        val sensor = AccelerometerBmi160(AccelerometerBmi160.Odr.HZ100, AccelerometerBmi160.Range.G2)
+        startLoggingWithReplies(sensor, device, transport)
+        assertNotNull(device.logReferenceDate)
+
+        device.restart()
+
+        assertEquals(DeviceState.Disconnected, device.state.value)
+        assertFalse(device.loggerRegistry.containsKey(sensor.loggerKey))
+        assertNull(device.logReferenceDate)
+    }
+
+    @Test
+    fun `restart when already disconnected throws`() = runTest {
+        val device = MetaWearDevice(mac, MockBleTransport(), backgroundScope)
+        val error = runCatching { device.restart() }.exceptionOrNull()
+        assertTrue(error is MetaWearException.InvalidState)
+    }
+
     // ---- sendExpectingDisconnect ----
 
     @Test

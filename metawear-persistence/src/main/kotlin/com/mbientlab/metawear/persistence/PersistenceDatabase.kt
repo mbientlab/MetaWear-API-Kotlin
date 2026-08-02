@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
  * The Room database for the full MetaWear persistence schema.
@@ -31,7 +33,7 @@ import androidx.room.TypeConverters
  */
 @Database(
     entities = [SessionRecord::class, SampleRecord::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 @TypeConverters(InstantConverters::class)
@@ -43,9 +45,22 @@ abstract class PersistenceDatabase : RoomDatabase() {
         /** Default on-disk database file name. */
         const val DEFAULT_NAME: String = "metawear-sessions.db"
 
+        /**
+         * v1 → v2: the per-session attribution stamps (`deviceName`,
+         * `groupID`). Both nullable — every pre-migration row reads as an
+         * unattributed solo session, which is exactly what it was.
+         */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE sessions ADD COLUMN deviceName TEXT")
+                db.execSQL("ALTER TABLE sessions ADD COLUMN groupID TEXT")
+            }
+        }
+
         /** Create the app-wide on-disk database. */
         fun create(context: Context, name: String = DEFAULT_NAME): PersistenceDatabase =
             Room.databaseBuilder(context.applicationContext, PersistenceDatabase::class.java, name)
+                .addMigrations(MIGRATION_1_2)
                 .build()
 
         /**

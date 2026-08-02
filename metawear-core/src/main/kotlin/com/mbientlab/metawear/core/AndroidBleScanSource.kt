@@ -25,9 +25,12 @@ import no.nordicsemi.android.kotlin.ble.scanner.BleScanner
  * The scan is deliberately unfiltered: MetaWear boards do **not** reliably
  * include the custom service UUID (`326A9000-…`) in their advertisement
  * packets, so an OS-level service filter would hide real boards.
- * [com.mbientlab.metawear.MetaWearScanner] matches on the advertised
- * "MetaWear" name prefix instead. The [scan] `services` argument is accepted
- * to satisfy the [BleTransport] interface but intentionally not forwarded.
+ * [com.mbientlab.metawear.MetaWearScanner] admits peripherals by advertised
+ * name or — for renamed boards whose packets do carry it — the service UUID
+ * (see `MetaWearScanner.isMetaWearAdvertisement`), so this source forwards
+ * the advertised service UUIDs on every result. The [scan] `services`
+ * argument is accepted to satisfy the [BleTransport] interface but
+ * intentionally not forwarded.
  *
  * ### Permissions
  * The caller must hold `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT` (API 31+) or
@@ -65,6 +68,8 @@ class AndroidBleScanSource(context: Context) : BleTransport {
                     rssi = data.rssi,
                     manufacturerData = data.scanRecord?.manufacturerSpecificData
                         ?.let { manufacturerBlob(it) },
+                    serviceUUIDs = data.scanRecord?.serviceUuids
+                        ?.map { it.toString() } ?: emptyList(),
                 )
             }
 

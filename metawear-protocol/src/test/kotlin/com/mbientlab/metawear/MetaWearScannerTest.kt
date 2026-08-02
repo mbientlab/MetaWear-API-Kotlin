@@ -135,4 +135,108 @@ class MetaWearScannerTest {
         val discovered = scanner.discoveredDevices.value["AA:BB"]!!
         assertSame(discovered, scanner.deviceForKnownIdentifier("AA:BB"))
     }
+
+    // ---- Advertisement admission ----
+    //
+    // The original rule was name-prefix only, which silently dropped RENAMED
+    // boards from discovery — a board called "bob" never appeared in the
+    // nearby list on hosts that hadn't remembered it, even though it
+    // advertised the MetaWear service UUID.
+
+    private val metaWearService = "326A9000-85CB-9195-D9DD-464CFBBAE75A"
+
+    @Test
+    fun `admission accepts the default name`() {
+        assertTrue(MetaWearScanner.isMetaWearAdvertisement("MetaWear", emptyList()))
+    }
+
+    @Test
+    fun `admission accepts a renamed board by service UUID`() {
+        // The quirk this rule exists to fix.
+        assertTrue(MetaWearScanner.isMetaWearAdvertisement("bob", listOf(metaWearService)))
+    }
+
+    @Test
+    fun `admission service UUID comparison is case-insensitive`() {
+        assertTrue(MetaWearScanner.isMetaWearAdvertisement("bob", listOf(metaWearService.lowercase())))
+    }
+
+    @Test
+    fun `admission rejects foreign peripherals`() {
+        assertFalse(MetaWearScanner.isMetaWearAdvertisement("AirPods Pro", listOf("FE59", "180F")))
+        assertFalse(MetaWearScanner.isMetaWearAdvertisement("", emptyList()))
+    }
+
+    @Test
+    fun `admission rejects bootloader-mode boards`() {
+        // Bootloader boards advertise the Nordic DFU service and the
+        // "MetaBoot" name — the normal connect flow can't talk to them.
+        assertFalse(
+            MetaWearScanner.isMetaWearAdvertisement(
+                "MetaBoot",
+                listOf("00001530-1212-EFDE-1523-785FEABCD123"),
+            ),
+        )
+    }
+
+    @Test
+    fun `renamed board advertising the service UUID is discovered`() = runTest {
+        val scanner = makeScanner()
+        scanner.startScan()
+        runCurrent()
+
+        scanFlow.tryEmit(
+            ScanResult(
+                identifier = "CC:DD",
+                name = "bob",
+                rssi = -55,
+                serviceUUIDs = listOf(metaWearService),
+            ),
+        )
+        runCurrent()
+
+        assertEquals(setOf("CC:DD"), scanner.discoveredDevices.value.keys)
+        assertEquals("bob", scanner.advertisedNames.value["CC:DD"])
+    }
+
+    // ---- Known-device promotion ----
+
+    @Test
+    fun `known device is promoted on discovery instead of minting a twin`() = runTest {
+        val scanner = makeScanner()
+        // Remembered board vended before it re-advertises…
+        val known = scanner.deviceForKnownIdentifier("AA:BB")
+        scanner.startScan()
+        runCurrent()
+
+        // …then seen on air: the SAME instance must be promoted. Two device
+        // instances for one identifier means two transports racing over one
+        // peripheral — the loser's connection state goes dark.
+        scanFlow.tryEmit(advertisement("AA:BB", "MetaWear ABC"))
+        runCurrent()
+
+        assertSame(known, scanner.discoveredDevices.value["AA:BB"])
+        assertEquals(1, devicesCreated)
+    }
+
+    // ---- noteAdvertisedName ----
+
+    @Test
+    fun `noteAdvertisedName overrides the cache until the next advertisement`() = runTest {
+        val scanner = makeScanner()
+        scanner.startScan()
+        runCurrent()
+        scanFlow.tryEmit(advertisement("AA:BB", "MetaWear ABC"))
+        runCurrent()
+
+        // Rename flow: a connected board doesn't advertise, so the app
+        // injects the expected name for immediate UI feedback…
+        scanner.noteAdvertisedName("AA:BB", "bob")
+        assertEquals("bob", scanner.advertisedNames.value["AA:BB"])
+
+        // …and the next real advertisement reconciles it with the truth.
+        scanFlow.tryEmit(advertisement("AA:BB", "MetaWear ABC"))
+        runCurrent()
+        assertEquals("MetaWear ABC", scanner.advertisedNames.value["AA:BB"])
+    }
 }

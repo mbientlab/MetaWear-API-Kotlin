@@ -1,5 +1,6 @@
 package com.mbientlab.metawear.model
 
+import kotlin.math.abs
 import kotlinx.datetime.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -46,6 +47,85 @@ class DataTableTest {
         assertEquals(4, vals.size)
         assertEquals("1.000000", vals[0])
         assertEquals("0.000000", vals[1])
+    }
+
+    // ---- Quaternion → derived Euler columns ----
+    //
+    // Axis convention is matched to the firmware's own Euler output
+    // (paired-capture validated on hardware): heading = classic yaw about z;
+    // pitch = NEGATED classic roll about x; roll = NEGATED classic pitch
+    // about y.
+
+    @Test
+    fun `quaternion derived headers`() {
+        assertEquals(
+            listOf("heading", "pitch", "roll"),
+            DataConvertible.derivedColumnHeaders(Quaternion::class),
+        )
+    }
+
+    @Test
+    fun `quaternion identity derives zero angles`() {
+        val e = Quaternion(w = 1f, x = 0f, y = 0f, z = 0f).derivedEulerAngles
+        assertTrue(abs(e.heading) < 0.01f)
+        assertTrue(abs(e.pitch) < 0.01f)
+        assertTrue(abs(e.roll) < 0.01f)
+    }
+
+    @Test
+    fun `quaternion 90deg about z reads as heading 90`() {
+        // w = cos(45°), z = sin(45°)
+        val q = Quaternion(w = 0.7071068f, x = 0f, y = 0f, z = 0.7071068f)
+        val e = q.derivedEulerAngles
+        assertTrue(abs(e.heading - 90f) < 0.01f)
+        assertTrue(abs(e.pitch) < 0.01f)
+    }
+
+    @Test
+    fun `quaternion 90deg about x reads as pitch minus 90`() {
+        val q = Quaternion(w = 0.7071068f, x = 0.7071068f, y = 0f, z = 0f)
+        val e = q.derivedEulerAngles
+        assertTrue(abs(e.pitch - (-90f)) < 0.01f)
+        assertTrue(abs(e.roll) < 0.01f)
+    }
+
+    @Test
+    fun `quaternion 90deg about y reads as roll minus 90`() {
+        // This is also the gimbal pole for the asin-bounded roll angle: the
+        // sin argument hits ±1 exactly and must clamp without NaN.
+        val q = Quaternion(w = 0.7071068f, x = 0f, y = 0.7071068f, z = 0f)
+        val e = q.derivedEulerAngles
+        assertTrue(abs(e.roll - (-90f)) < 0.01f)
+        assertFalse(e.heading.isNaN() || e.pitch.isNaN())
+    }
+
+    @Test
+    fun `quaternion negative yaw normalizes heading into 0 to 360`() {
+        // −90° about the vertical (quat z): w = cos(−45°), z = sin(−45°)
+        val q = Quaternion(w = 0.7071068f, x = 0f, y = 0f, z = -0.7071068f)
+        assertTrue(abs(q.derivedEulerAngles.heading - 270f) < 0.01f)
+    }
+
+    @Test
+    fun `quaternion derived yaw duplicates heading`() {
+        // The firmware's separate yaw channel is gyroscope-integrated and
+        // can't be reconstructed from one orientation quaternion — the
+        // derived yaw field carries heading instead.
+        val e = Quaternion(w = 0.7071068f, x = 0f, y = 0f, z = 0.7071068f).derivedEulerAngles
+        assertEquals(e.heading, e.yaw)
+    }
+
+    @Test
+    fun `quaternion derived values use four decimal euler format`() {
+        val vals = DataConvertible.derivedColumnValues(Quaternion(w = 1f, x = 0f, y = 0f, z = 0f))
+        assertEquals(listOf("0.0000", "0.0000", "0.0000"), vals)
+    }
+
+    @Test
+    fun `non-quaternion has no derived columns`() {
+        assertTrue(DataConvertible.derivedColumnHeaders(CartesianFloat::class).isEmpty())
+        assertTrue(DataConvertible.derivedColumnHeaders(EulerAngles::class).isEmpty())
+        assertTrue(DataConvertible.derivedColumnValues(CartesianFloat(x = 1f, y = 2f, z = 3f)).isEmpty())
     }
 
     // ---- DataConvertible: EulerAngles ----
@@ -194,6 +274,35 @@ class DataTableTest {
             value = Quaternion(w = 1f, x = 0f, y = 0f, z = 0f),
         )
         val table = DataTable.fromLogged(listOf(s), name = "t")
+        assertEquals(table.columns.size, table.rows[0].size)
+    }
+
+    @Test
+    fun `logged quaternion appends derived euler columns`() {
+        // 90° about the vertical axis (quat z) → heading column reads 90.
+        val s = LoggedSample(
+            date = Instant.fromEpochMilliseconds(0),
+            tickMs = 0.0,
+            value = Quaternion(w = 0.7071068f, x = 0f, y = 0f, z = 0.7071068f),
+        )
+        val table = DataTable.fromLogged(listOf(s), name = "t")
+        assertEquals(
+            listOf("epoch", "elapsed_ms", "w", "x", "y", "z", "heading", "pitch", "roll"),
+            table.columns,
+        )
+        assertEquals("90.0000", table.rows[0][6])
+    }
+
+    @Test
+    fun `streamed quaternion appends derived euler columns`() {
+        val samples = listOf(
+            Timestamped(
+                time = Instant.fromEpochMilliseconds(0),
+                value = Quaternion(w = 1f, x = 0f, y = 0f, z = 0f),
+            ),
+        )
+        val table = DataTable.fromStreamed(samples, name = "t")
+        assertEquals(listOf("epoch", "w", "x", "y", "z", "heading", "pitch", "roll"), table.columns)
         assertEquals(table.columns.size, table.rows[0].size)
     }
 

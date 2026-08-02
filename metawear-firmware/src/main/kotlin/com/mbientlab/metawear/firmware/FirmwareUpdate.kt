@@ -105,7 +105,9 @@ fun MetaWearDevice.updateFirmware(
  * If the device is already on the latest, the Flow completes after the
  * initial [DFUProgress.State.FETCHING_CATALOG] event — callers can
  * distinguish "nothing to do" from "update completed" by observing whether
- * [DFUProgress.State.COMPLETED] was emitted.
+ * [DFUProgress.State.COMPLETED] was emitted. Setting [forceReinstall] flashes
+ * the latest build regardless (recovery path for a misbehaving board, or a
+ * clean reflash after experimentation).
  *
  * Adds the bootloader interlock the explicit-URL path can't have: after the
  * MetaBoot handoff, the on-board bootloader version is read from the
@@ -117,8 +119,9 @@ fun MetaWearDevice.updateFirmware(
 fun MetaWearDevice.updateFirmwareToLatest(
     context: Context,
     server: FirmwareServer = FirmwareServer(),
+    forceReinstall: Boolean = false,
 ): Flow<DFUProgress> = flow {
-    runUpdateToLatest(context, server, this)
+    runUpdateToLatest(context, server, forceReinstall, this)
 }
 
 // ---- Private orchestration ----
@@ -169,6 +172,7 @@ private suspend fun MetaWearDevice.runFirmwareUpdate(
 private suspend fun MetaWearDevice.runUpdateToLatest(
     context: Context,
     server: FirmwareServer,
+    forceReinstall: Boolean,
     collector: FlowCollector<DFUProgress>,
 ) {
     val info = deviceInfo ?: throw FirmwareException.OperationFailed(
@@ -176,11 +180,19 @@ private suspend fun MetaWearDevice.runUpdateToLatest(
     )
 
     collector.emit(DFUProgress(DFUProgress.State.FETCHING_CATALOG))
-    val build = server.updateAvailable(
-        currentRev = info.firmwareRevision,
-        hardwareRev = info.hardwareRevision,
-        modelNumber = info.modelNumber,
-    ) ?: return // Already up to date. Complete with no further events.
+    val build = if (forceReinstall) {
+        // Flash the latest build even when the board already runs it.
+        server.latestBuild(
+            hardwareRev = info.hardwareRevision,
+            modelNumber = info.modelNumber,
+        )
+    } else {
+        server.updateAvailable(
+            currentRev = info.firmwareRevision,
+            hardwareRev = info.hardwareRevision,
+            modelNumber = info.modelNumber,
+        ) ?: return // Already up to date. Complete with no further events.
+    }
 
     collector.emit(DFUProgress(DFUProgress.State.DOWNLOADING_FIRMWARE))
     val applicationFile = server.downloadFirmware(build)

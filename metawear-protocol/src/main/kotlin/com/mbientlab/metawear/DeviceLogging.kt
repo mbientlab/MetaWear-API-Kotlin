@@ -29,8 +29,10 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
@@ -38,6 +40,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.Instant
 
 // The logging half of the device surface: startLogging/stopLogging
@@ -82,6 +85,14 @@ internal val PROBE_TIMEOUT: Duration = 1.seconds
  * forever.
  */
 internal val DOWNLOAD_INACTIVITY_TIMEOUT: Duration = 60.seconds
+
+/**
+ * Upper bound on waiting for the firmware to signal Drop Entries completion
+ * in [clearLog]. One board's drop outlived an earlier 30 s bound (dirty NAND,
+ * long garbage collection) and arming loggers on the still-grinding board
+ * recorded almost nothing.
+ */
+internal val DROP_COMPLETION_TIMEOUT: Duration = 60.seconds
 
 // ---- Raw log entry ----
 
@@ -228,6 +239,11 @@ suspend fun <S> MetaWearDevice.stopLogging(loggable: Loggable<S>): Unit = opMute
     // its own stop + disable writes — otherwise the board keeps sampling that
     // sensor (and `downloadLogs` returns no entries because the logger never
     // sees a fresh session marker).
+    // Flush the in-RAM partial page WHILE logging is still enabled — the NAND
+    // write-cache flush is only known to be honoured with the module live;
+    // downloadLogs flushes again afterwards as belt and braces. No-op on
+    // non-MMS boards.
+    runCatching { flushLogPage() }
     writeRaw(Packet.command(Module.LOGGING, LOG_ENABLE, 0x00)) // stop logging
     for (cmd in loggable.stopCommands) if (cmd.isNotEmpty()) writeRaw(cmd)
     for (cmd in loggable.disableCommands) if (cmd.isNotEmpty()) writeRaw(cmd)
@@ -356,6 +372,7 @@ suspend fun <S> MetaWearDevice.stopLogging(
     runCatching { stopTimer(timer) }
     runCatching { removeTimer(timer) }
     runCatching { removeEvent(Event(id = handles.eventID)) }
+    runCatching { flushLogPage() } // see the Loggable overload
     writeRaw(Packet.command(Module.LOGGING, LOG_ENABLE, 0x00))
     _state.value = DeviceState.Idle
 }
@@ -423,8 +440,15 @@ fun <S> MetaWearDevice.recoverLoggers(logger: PolledLogger<S>, active: List<Acti
  * force-flush the active page here so that workflow shape always works
  * without the caller having to remember [flushLogPage]. The flush is a no-op
  * on MMRL (logging revision < 3).
+ *
+ * @param expectEntries Pass `true` when the caller KNOWS the board logged
+ *   (local records exist, or it reported itself logging) — a zero
+ *   `LOG_LENGTH` then triggers a longer flush-settle wait instead of an
+ *   instant empty download.
  */
-suspend fun MetaWearDevice.downloadLogs(): Flow<Download<List<RawLogEntry>>> = opMutex.withLock {
+suspend fun MetaWearDevice.downloadLogs(
+    expectEntries: Boolean = false,
+): Flow<Download<List<RawLogEntry>>> = opMutex.withLock {
     if (state.value != DeviceState.Idle) {
         throw MetaWearException.InvalidState("Device must be idle to download")
     }
@@ -435,7 +459,7 @@ suspend fun MetaWearDevice.downloadLogs(): Flow<Download<List<RawLogEntry>>> = o
         // below reflects every captured sample. Idempotent — safe to call even
         // if the user already invoked `flushLogPage()` explicitly. No-op on
         // pre-MMS firmware (revision < 3).
-        flushLogPage()
+        val didFlush = flushLogPage()
 
         // Enable readout-notify and progress channels, then read the entry count.
         writeRaw(Packet.command(Module.LOGGING, LOG_READOUT_NOTIFY, 0x01))         // enable readout notify
@@ -446,16 +470,9 @@ suspend fun MetaWearDevice.downloadLogs(): Flow<Download<List<RawLogEntry>>> = o
         val progressFlow = subscribeRaw(Module.LOGGING, LOG_READOUT_PROGRESS)
         val pageFlow = subscribeRaw(Module.LOGGING, LOG_READOUT_PAGE_COMPLETED)
 
-        // Read entry count, then start the download
-        val lengthResponse = sendRead(
-            command = Packet.read(Module.LOGGING, LOG_LENGTH),
-            awaitModule = Module.LOGGING,
-            awaitRegister = LOG_LENGTH,
-        )
-        if (lengthResponse.size < 6) {
-            throw MetaWearException.OperationFailed("Log length response too short")
-        }
-        val nEntries = PacketParser.parseUInt32LE(lengthResponse, 2)
+        // Read entry count (waiting out the MMS's asynchronous page flush),
+        // then start the download.
+        val nEntries = settledLogLength(didFlush = didFlush, expectEntries = expectEntries)
 
         // Empty log buffer: short-circuit. Issuing the readout with count=0
         // produces no `0x07` raw entries, no `0x0D` page-completed notice, and
@@ -470,9 +487,17 @@ suspend fun MetaWearDevice.downloadLogs(): Flow<Download<List<RawLogEntry>>> = o
             )
         }
 
-        // Readout: [0x0B, 0x06, n_entries(4 LE), n_notify(4 LE)]
-        // n_notify = 0 means one progress update per page.
-        writeRaw(Packet.command(Module.LOGGING, LOG_READOUT, PacketParser.le32(nEntries) + PacketParser.le32(0)))
+        // Readout: [0x0B, 0x06, n_entries(4 LE), notify_delta(4 LE)]
+        // The delta is "send a 0x08 progress notification every N entries
+        // transferred" (spec, Logging 0x06). A delta of 0 disables
+        // intermediate progress ENTIRELY — the firmware then sends only the
+        // final remaining==0 notice, which made download progress jump
+        // 0 → 100 with nothing in between. Aim for ~100 updates across the
+        // download, floor 1 so tiny logs still progress.
+        val notifyDelta = maxOf(1L, nEntries / 100)
+        writeRaw(
+            Packet.command(Module.LOGGING, LOG_READOUT, PacketParser.le32(nEntries) + PacketParser.le32(notifyDelta)),
+        )
 
         val channel = Channel<Download<List<RawLogEntry>>>(Channel.UNLIMITED)
         val downloadJob = scope.launch {
@@ -693,9 +718,99 @@ suspend fun MetaWearDevice.clearLog(): Unit = opMutex.withLock {
         throw MetaWearException.InvalidState("Device must be idle to clear the log")
     }
     writeRaw(Packet.command(Module.LOGGING, LOG_ENABLE, 0x00))                          // stop logging
+
+    // The drop is ASYNCHRONOUS on MMS NAND: it kicks off page garbage
+    // collection that grinds for seconds, and the firmware signals completion
+    // with a READOUT_PAGE_COMPLETED (0x0D) notification — the spec's register
+    // table: "sent … after the Drop Entries command completes". Arming a new
+    // session before that lands records NOTHING (field evidence: a
+    // machine-speed clear→start logged zero entries on both boards; the same
+    // boards logged fine after a human-paced clear). MMS-revision boards
+    // therefore wait for the completion, bounded — if a board never signals
+    // we proceed best-effort rather than wedge every caller.
+    val awaitCompletion = (moduleInfo(Module.LOGGING)?.revision ?: 0) >= 3
+    var pageFlow: Flow<ByteArray>? = null
+    if (awaitCompletion) {
+        writeRaw(Packet.command(Module.LOGGING, LOG_READOUT_PAGE_COMPLETED, 0x01))
+        pageFlow = subscribeRaw(Module.LOGGING, LOG_READOUT_PAGE_COMPLETED)
+    }
+
     writeRaw(Packet.command(Module.LOGGING, LOG_REMOVE_ENTRIES, 0xFF, 0xFF, 0xFF, 0xFF))
+
+    if (pageFlow != null) {
+        awaitDropCompletion(pageFlow)
+        unsubscribeRaw(Module.LOGGING, LOG_READOUT_PAGE_COMPLETED)
+        runCatching { writeRaw(Packet.command(Module.LOGGING, LOG_READOUT_PAGE_COMPLETED, 0x00)) }
+    }
+
     writeRaw(Packet.command(Module.LOGGING, LOG_REMOVE_ALL_TRIGGERS))                   // remove all loggers
     loggerRegistry.clear()
+}
+
+/**
+ * Wait for the Drop Entries pass to finish. Two independent completion
+ * signals, first one wins:
+ *  1. the documented 0x0D notification — which field testing shows some
+ *     boards never send after a drop, and
+ *  2. `LOG_LENGTH` reading 0 on two consecutive polls — the entries provably
+ *     gone.
+ * Bounded at [DROP_COMPLETION_TIMEOUT] on both arms.
+ *
+ * @return `true` when either signal confirmed completion before the bound.
+ */
+private suspend fun MetaWearDevice.awaitDropCompletion(pageFlow: Flow<ByteArray>): Boolean = coroutineScope {
+    val results = Channel<Boolean>(capacity = 2)
+    val notice = launch {
+        results.trySend(withTimeoutOrNull(DROP_COMPLETION_TIMEOUT) { pageFlow.firstOrNull() } != null)
+    }
+    val drain = launch {
+        var zeroReads = 0
+        var drained = false
+        for (i in 0 until 30) {
+            delay(2.seconds)
+            val response = runCatching {
+                sendRead(
+                    command = Packet.read(Module.LOGGING, LOG_LENGTH),
+                    awaitModule = Module.LOGGING,
+                    awaitRegister = LOG_LENGTH,
+                )
+            }.getOrNull()
+            if (response == null || response.size < 6) continue
+            if (PacketParser.parseUInt32LE(response, 2) == 0L) {
+                zeroReads += 1
+                if (zeroReads >= 2) {
+                    drained = true
+                    break
+                }
+            } else {
+                zeroReads = 0
+            }
+        }
+        results.trySend(drained)
+    }
+    var completed = false
+    for (i in 0 until 2) {
+        if (results.receive()) {
+            completed = true
+            break
+        }
+    }
+    notice.cancel()
+    drain.cancel()
+    completed
+}
+
+/**
+ * Stop on-board logging sampling (`[0x0B, 0x01, 0x00]`) WITHOUT touching
+ * stored entries or logger subscriptions.
+ *
+ * For foreign sessions — logging started by another host — call this before
+ * [downloadLogs] so the readout doesn't race concurrent writes; the entries
+ * and the logger metadata needed to decode them stay intact. A no-op if
+ * logging is already stopped.
+ */
+suspend fun MetaWearDevice.stopOnBoardLogging() {
+    writeRaw(Packet.command(Module.LOGGING, LOG_ENABLE, 0x00))
 }
 
 /**
@@ -721,6 +836,57 @@ suspend fun MetaWearDevice.flushLogPage(): Boolean {
     if (info == null || info.revision < 3) return false
     writeRaw(Packet.command(Module.LOGGING, LOG_FLUSH_PAGE, 0x01))
     return true
+}
+
+/**
+ * Read `LOG_LENGTH`, waiting out the MMS's ASYNCHRONOUS page flush.
+ *
+ * The flush command returns immediately while the firmware copies the in-RAM
+ * partial page to flash — an immediate read races that copy and reports the
+ * PRE-flush count. Field evidence (two-board group collect, 2026-07-19): a
+ * machine-speed stop→download read 0 entries on one board and a stale
+ * page-aligned count on the other; both boards' fresh samples were still in
+ * RAM and both downloads came back empty. Human-paced solo flows always
+ * masked the race with navigation delays between Stop and Download. Give the
+ * flush a head start, then poll until two consecutive reads agree (bounded,
+ * ~2 s worst case).
+ */
+private suspend fun MetaWearDevice.settledLogLength(didFlush: Boolean, expectEntries: Boolean): Long {
+    suspend fun readLength(): Long {
+        val response = sendRead(
+            command = Packet.read(Module.LOGGING, LOG_LENGTH),
+            awaitModule = Module.LOGGING,
+            awaitRegister = LOG_LENGTH,
+        )
+        if (response.size < 6) {
+            throw MetaWearException.OperationFailed("Log length response too short")
+        }
+        return PacketParser.parseUInt32LE(response, 2)
+    }
+    if (!didFlush) return readLength()
+    delay(300.milliseconds)
+    var previous = readLength()
+    var attempt = 0
+    while (true) {
+        attempt += 1
+        // Two consecutive agreeing reads normally settle it — but when the
+        // caller KNOWS the board logged (records exist / it reported itself
+        // logging), a stable ZERO means the NAND flush hasn't landed yet, not
+        // that the board is empty. Keep waiting (and periodically re-issue
+        // the flush; it has no ack) up to ~8 s before conceding — an empty
+        // download here reads as data loss to the user, so patience is the
+        // cheaper failure mode.
+        val expectingMore = expectEntries && previous == 0L
+        val maxAttempts = if (expectingMore) 10 else 6
+        if (attempt > maxAttempts) return previous
+        if (expectingMore && attempt % 3 == 0) {
+            writeRaw(Packet.command(Module.LOGGING, LOG_FLUSH_PAGE, 0x01))
+        }
+        delay(if (expectingMore) 750.milliseconds else 250.milliseconds)
+        val current = readLength()
+        if (current == previous && !(expectEntries && current == 0L)) return current
+        previous = current
+    }
 }
 
 // ---- Logger recovery ----

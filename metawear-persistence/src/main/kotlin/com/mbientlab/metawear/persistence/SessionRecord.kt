@@ -41,4 +41,18 @@ data class SessionRecord(
      * history list.
      */
     val label: String? = null,
+    /**
+     * Display name of the board at capture time ("bob", "MetaWear"). Must be
+     * stamped at save: boards go off air and advertised-name caches are
+     * per-host, so there is no reliable retroactive path from [deviceID] to a
+     * name. Null on records written before this column existed — readers fall
+     * back to [deviceSerial]/[deviceModel].
+     */
+    val deviceName: String? = null,
+    /**
+     * Group-capture batch this session belongs to, when several boards were
+     * logged together (UUID string shared by every session in the batch).
+     * Null for solo sessions and all records that predate group logging.
+     */
+    val groupID: String? = null,
 )

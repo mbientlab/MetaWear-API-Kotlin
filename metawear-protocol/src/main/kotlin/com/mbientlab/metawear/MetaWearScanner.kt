@@ -1,6 +1,7 @@
 package com.mbientlab.metawear
 
 import com.mbientlab.metawear.transport.BleTransport
+import com.mbientlab.metawear.transport.Uuids
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,11 +27,34 @@ class MetaWearScanner(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     private val deviceFactory: (identifier: String) -> MetaWearDevice,
 ) {
+
+    companion object {
+        /**
+         * Whether an advertisement belongs to a MetaWear board running
+         * application firmware, by either of two signals:
+         *  1. The default local-name prefix ("MetaWear").
+         *  2. The MetaWear service UUID — boards advertise it regardless of
+         *     how they've been RENAMED, so a board called "bob" still counts.
+         *
+         * MetaBoot-mode boards match neither (name "MetaBoot", Nordic DFU
+         * service) and stay excluded on purpose — the normal connect flow
+         * can't talk to a bootloader.
+         */
+        fun isMetaWearAdvertisement(name: String, serviceUUIDs: List<String>): Boolean {
+            if (name.startsWith("MetaWear")) return true
+            val service = Uuids.service.toString()
+            return serviceUUIDs.any { it.equals(service, ignoreCase = true) }
+        }
+    }
+
     // ---- Public state ----
 
     private val _discoveredDevices = MutableStateFlow<Map<String, MetaWearDevice>>(emptyMap())
 
-    /** Devices whose advertised name starts with "MetaWear", keyed by identifier. */
+    /**
+     * Devices admitted by [isMetaWearAdvertisement] (default name prefix or
+     * the advertised MetaWear service UUID), keyed by identifier.
+     */
     val discoveredDevices: StateFlow<Map<String, MetaWearDevice>> = _discoveredDevices.asStateFlow()
 
     private val _advertisedNames = MutableStateFlow<Map<String, String>>(emptyMap())
@@ -70,7 +94,9 @@ class MetaWearScanner(
     /**
      * Start observing BLE advertisements. Scans without a service filter
      * because MetaWear boards do not consistently include the custom service
-     * UUID in advertisements; devices are matched on the "MetaWear" name prefix.
+     * UUID in advertisements; admission goes through [isMetaWearAdvertisement]
+     * (name prefix or, when the packet does carry it, the service UUID — which
+     * is what keeps RENAMED boards discoverable).
      */
     fun startScan() {
         if (_isScanning.value) return
@@ -82,7 +108,7 @@ class MetaWearScanner(
                 // Advertisements repeat several times per second per board;
                 // guard writes on actual change so StateFlow subscribers aren't
                 // invalidated at advertising rate. Names are recorded before
-                // the prefix filter (rename observability).
+                // the admission filter (rename observability).
                 if (_advertisedNames.value[id] != name) {
                     _advertisedNames.update { it + (id to name) }
                 }
@@ -90,9 +116,15 @@ class MetaWearScanner(
                     _advertisementRssi.update { it + (id to result.rssi) }
                 }
                 // Accept only MetaWear peripherals, once each.
-                if (!name.startsWith("MetaWear")) return@collect
+                if (!isMetaWearAdvertisement(name, result.serviceUUIDs)) return@collect
                 if (_discoveredDevices.value.containsKey(id)) return@collect
-                _discoveredDevices.update { it + (id to deviceFactory(id)) }
+                // Promote the known-peripheral instance instead of minting a
+                // twin. Two MetaWearDevice instances for one identifier means
+                // two transports racing over one peripheral — the loser's
+                // connection state goes dark. With several remembered boards
+                // reconnecting while a scan runs, that race would be routine.
+                val device = knownDevices.remove(id) ?: deviceFactory(id)
+                _discoveredDevices.update { it + (id to device) }
             }
         }
     }
@@ -102,6 +134,19 @@ class MetaWearScanner(
         scanJob?.cancel()
         scanJob = null
         _isScanning.value = false
+    }
+
+    /**
+     * Override the cached advertised name for an identifier.
+     *
+     * For rename flows: after a settings device-name write the cache is
+     * KNOWN-stale — a connected board doesn't advertise, so no observation
+     * will correct it until after disconnect. Callers inject the expected
+     * name so UI keyed off this cache updates immediately; the next real
+     * advertisement reconciles it with the truth.
+     */
+    fun noteAdvertisedName(identifier: String, name: String) {
+        _advertisedNames.update { it + (identifier to name) }
     }
 
     /**
@@ -115,8 +160,10 @@ class MetaWearScanner(
     /**
      * Return a [MetaWearDevice] for a peripheral known by identifier (typically
      * remembered from a previous session) without requiring re-discovery on
-     * air. Repeated calls return the same instance; a live [discoveredDevices]
-     * entry takes precedence.
+     * air. Repeated calls return the same instance, and if the scanner
+     * subsequently discovers the same identifier on air that SAME instance is
+     * promoted into [discoveredDevices] — callers never observe two
+     * [MetaWearDevice] instances for one identifier.
      */
     fun deviceForKnownIdentifier(identifier: String): MetaWearDevice {
         _discoveredDevices.value[identifier]?.let { return it }

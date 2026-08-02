@@ -36,6 +36,13 @@ data class SessionSnapshot(
      * [sensorKind] when null.
      */
     val label: String? = null,
+    /**
+     * Display name of the board at capture time. Null on records written
+     * before the field existed — fall back to [deviceSerial]/[deviceModel].
+     */
+    val deviceName: String? = null,
+    /** Group-capture batch, when several boards were logged together. */
+    val groupID: String? = null,
 ) {
     internal companion object {
         fun from(record: SessionRecord, sampleCount: Int): SessionSnapshot = SessionSnapshot(
@@ -49,6 +56,8 @@ data class SessionSnapshot(
             deviceModel = record.deviceModel,
             deviceFirmware = record.deviceFirmware,
             label = record.label,
+            deviceName = record.deviceName,
+            groupID = record.groupID,
         )
     }
 }

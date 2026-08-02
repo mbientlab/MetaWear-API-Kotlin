@@ -359,6 +359,35 @@ class MetaWearDevice(
         // the caller can decide whether to reuse them after `reconnect()`.
     }
 
+    /**
+     * Reboot the board WITHOUT erasing anything. Flash-resident data — log
+     * entries, macros — survives; volatile state (timers, events, sensor
+     * enables, a wedged NAND housekeeping pass) is cleared, which is the
+     * point: this is the unwedge for a misbehaving board when a factory reset
+     * would cost real data. The link drops intentionally; reconnect after
+     * ~1 s brings the board back.
+     */
+    suspend fun restart() {
+        if (_state.value == DeviceState.Disconnected) {
+            throw MetaWearException.InvalidState("Cannot restart a disconnected device")
+        }
+        // Intentional link drop — same suppression + reset pair (and the
+        // same MMS fw-1.5.0 ResetAfterGc-no-op fallback) as factoryReset
+        // steps 7-8, without any of the erase steps.
+        router.clearDisconnectHandler()
+        send(Debug.ResetAfterGc())
+        runCatching { send(Debug.Reset()) }
+        // Finish open processor flows before the router goes down so
+        // collectors see clean completion (mirrors disconnect()).
+        terminateAllProcessorStreams()
+        router.stop()
+        _state.value = DeviceState.Disconnected
+        activeStreamKeys.clear()
+        activeFusionConfig = null
+        loggerRegistry.clear()
+        logReferenceDate = null
+    }
+
     // ---- Streaming ----
 
     /**

@@ -44,7 +44,11 @@ class SessionExportTest {
             samples = s, persistable = QuaternionPersistable,
         )
         val table = store.exportTable(sessionID = snap.id, persistable = QuaternionPersistable)
-        assertEquals(listOf("epoch", "elapsed_ms", "w", "x", "y", "z"), table.columns)
+        // Raw components first, then the host-derived Euler convenience columns.
+        assertEquals(
+            listOf("epoch", "elapsed_ms", "w", "x", "y", "z", "heading", "pitch", "roll"),
+            table.columns,
+        )
     }
 
     @Test

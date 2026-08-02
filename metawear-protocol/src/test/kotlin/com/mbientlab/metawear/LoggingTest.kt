@@ -693,6 +693,228 @@ class LoggingTest {
         assertTrue(samples[0].tickMs < samples[1].tickMs)
     }
 
+    // ---- MMS NAND semantics: flush-before-stop, settled length, drop completion ----
+    //
+    // The MMS stores entries behind a RAM write page and a background garbage
+    // collector, both invisible to the wire protocol. Machine-paced hosts hit
+    // every mechanic that human-paced navigation delays masked: a LOG_LENGTH
+    // read racing the asynchronous page flush, and a logging session armed
+    // while Drop Entries GC is still grinding (which records nothing).
+
+    @Test
+    fun `stopLogging flushes the live page before stopping on MMS`() = runTest {
+        val (device, transport) = connectedDevice(loggingRevision = 3)
+        val sensor = AccelerometerBmi160(AccelerometerBmi160.Odr.HZ100, AccelerometerBmi160.Range.G2)
+        startLoggingWithReplies(sensor, device, transport)
+        val before = transport.writtenCommands.size
+
+        device.stopLogging(sensor)
+
+        // The NAND write-cache flush is only known to be honoured while the
+        // logging module is live, so it must precede the stop command.
+        val after = transport.writtenCommands.drop(before)
+        val flushIndex = after.indexOfFirst { it.contentEquals(bytes(0x0B, 0x10, 0x01)) }
+        val stopIndex = after.indexOfFirst { it.contentEquals(bytes(0x0B, 0x01, 0x00)) }
+        assertTrue(flushIndex >= 0, "stopLogging must flush the live page on MMS")
+        assertTrue(stopIndex >= 0)
+        assertTrue(flushIndex < stopIndex, "flush must land while logging is still enabled")
+    }
+
+    @Test
+    fun `stopLogging omits the flush on MMRL`() = runTest {
+        val (device, transport) = connectedDevice(loggingRevision = 2)
+        val sensor = AccelerometerBmi160(AccelerometerBmi160.Odr.HZ100, AccelerometerBmi160.Range.G2)
+        startLoggingWithReplies(sensor, device, transport)
+        val before = transport.writtenCommands.size
+
+        device.stopLogging(sensor)
+
+        val after = transport.writtenCommands.drop(before)
+        assertTrue(after.none { it.size >= 2 && (it[0].toInt() and 0xFF) == 0x0B && (it[1].toInt() and 0xFF) == 0x10 })
+    }
+
+    @Test
+    fun `downloadLogs on MMS settles LOG_LENGTH and scales the progress delta`() = runTest {
+        val (device, transport) = connectedDevice(loggingRevision = 3)
+        val replies = backgroundScope.autoReply(transport) { cmd ->
+            if (cmd.size < 2) return@autoReply null
+            val module = cmd[0].toInt() and 0xFF
+            val reg = cmd[1].toInt() and 0xFF
+            when {
+                module == 0x0B && reg == 0x85 -> lengthReply(200)
+                // Readout starts → final remaining=0 progress straight away.
+                module == 0x0B && reg == 0x06 -> bytes(0x0B, 0x08, 0x00, 0x00, 0x00, 0x00)
+                else -> null
+            }
+        }
+
+        val snapshots = device.downloadLogs().toList()
+        replies.cancel()
+
+        val cmds = transport.writtenCommands
+        // The flush precedes the count, and the count settles on two
+        // consecutive agreeing reads (never a single racing read).
+        assertTrue(cmds.any { it.contentEquals(bytes(0x0B, 0x10, 0x01)) })
+        assertTrue(cmds.count { it.contentEquals(bytes(0x0B, 0x85)) } >= 2)
+        // Readout: [0x0B, 0x06, 200(LE32), delta(LE32)] with delta 200/100=2 —
+        // ~one progress notification per percent. A delta of 0 would disable
+        // intermediate progress entirely.
+        assertTrue(
+            cmds.any { it.contentEquals(bytes(0x0B, 0x06, 0xC8, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00)) },
+            "readout must request a scaled progress-notify delta",
+        )
+        assertEquals(1.0, snapshots.last().percentComplete)
+        assertEquals(DeviceState.Idle, device.state.value)
+    }
+
+    @Test
+    fun `downloadLogs floors the progress delta at one entry`() = runTest {
+        val (device, transport) = connectedDevice()
+        val replies = backgroundScope.autoReply(transport) { cmd ->
+            if (cmd.size < 2) return@autoReply null
+            val module = cmd[0].toInt() and 0xFF
+            val reg = cmd[1].toInt() and 0xFF
+            when {
+                module == 0x0B && reg == 0x85 -> lengthReply(2)
+                module == 0x0B && reg == 0x06 -> bytes(0x0B, 0x08, 0x00, 0x00, 0x00, 0x00)
+                else -> null
+            }
+        }
+
+        device.downloadLogs().toList()
+        replies.cancel()
+
+        // 2 entries / 100 rounds to 0 — the floor keeps tiny logs progressing.
+        assertTrue(
+            transport.writtenCommands.any {
+                it.contentEquals(bytes(0x0B, 0x06, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00))
+            },
+        )
+    }
+
+    @Test
+    fun `downloadLogs expectEntries waits out a stable zero and re-issues the flush`() = runTest {
+        val (device, transport) = connectedDevice(loggingRevision = 3)
+        val replies = backgroundScope.autoReply(transport) { cmd ->
+            if (cmd.size >= 2 && (cmd[0].toInt() and 0xFF) == 0x0B && (cmd[1].toInt() and 0xFF) == 0x85) {
+                lengthReply(0)
+            } else {
+                null
+            }
+        }
+
+        val snapshots = device.downloadLogs(expectEntries = true).toList()
+        replies.cancel()
+
+        // When the caller KNOWS the board logged, a stable zero means the
+        // NAND flush hasn't landed — the settle loop runs its longer bound
+        // (initial read + 10 attempts) and re-issues the un-acked flush every
+        // third attempt (3, 6, 9) on top of the initial flush, before
+        // conceding an empty download.
+        val cmds = transport.writtenCommands
+        assertEquals(11, cmds.count { it.contentEquals(bytes(0x0B, 0x85)) })
+        assertEquals(4, cmds.count { it.contentEquals(bytes(0x0B, 0x10, 0x01)) })
+        assertEquals(1, snapshots.size)
+        assertTrue(snapshots[0].data.isEmpty())
+        assertEquals(DeviceState.Idle, device.state.value)
+    }
+
+    @Test
+    fun `clearLog on MMS waits for the drop completion notice before removing loggers`() = runTest {
+        val (device, transport) = connectedDevice(loggingRevision = 3)
+        // Firmware signals Drop Entries completion with a READOUT_PAGE_COMPLETED
+        // notification (spec: 0x0D "sent … after the Drop Entries command
+        // completes").
+        val replies = backgroundScope.autoReply(transport) { cmd ->
+            if (cmd.contentEquals(bytes(0x0B, 0x09, 0xFF, 0xFF, 0xFF, 0xFF))) bytes(0x0B, 0x0D) else null
+        }
+
+        device.clearLog()
+        replies.cancel()
+
+        val cmds = transport.writtenCommands
+        val enableIdx = cmds.indexOfFirst { it.contentEquals(bytes(0x0B, 0x0D, 0x01)) }
+        val dropIdx = cmds.indexOfFirst { it.contentEquals(bytes(0x0B, 0x09, 0xFF, 0xFF, 0xFF, 0xFF)) }
+        val disableIdx = cmds.indexOfFirst { it.contentEquals(bytes(0x0B, 0x0D, 0x00)) }
+        val removeIdx = cmds.indexOfFirst { it.contentEquals(bytes(0x0B, 0x0A)) }
+        assertTrue(enableIdx >= 0 && dropIdx >= 0 && disableIdx >= 0 && removeIdx >= 0)
+        assertTrue(enableIdx < dropIdx, "page-completed notify must be armed before the drop")
+        assertTrue(dropIdx < disableIdx, "the notice channel stays armed until the drop completes")
+        assertTrue(disableIdx < removeIdx, "loggers are removed only after the drop completed")
+    }
+
+    @Test
+    fun `clearLog on MMS falls back to two consecutive zero length reads`() = runTest {
+        val (device, transport) = connectedDevice(loggingRevision = 3)
+        // No 0x0D notice — field testing shows some boards never send it after
+        // a drop. LOG_LENGTH reading 0 on two consecutive polls proves the
+        // entries gone instead.
+        val replies = backgroundScope.autoReply(transport) { cmd ->
+            if (cmd.size >= 2 && (cmd[0].toInt() and 0xFF) == 0x0B && (cmd[1].toInt() and 0xFF) == 0x85) {
+                lengthReply(0)
+            } else {
+                null
+            }
+        }
+
+        device.clearLog()
+        replies.cancel()
+
+        val cmds = transport.writtenCommands
+        assertTrue(cmds.count { it.contentEquals(bytes(0x0B, 0x85)) } >= 2)
+        assertTrue(cmds.any { it.contentEquals(bytes(0x0B, 0x0A)) })
+    }
+
+    @Test
+    fun `clearLog on MMS proceeds best-effort after the bounded wait`() = runTest {
+        val (device, transport) = connectedDevice(loggingRevision = 3)
+        // Neither signal ever fires: no 0x0D, and LOG_LENGTH stays non-zero.
+        // Rather than wedge every caller, the wait is bounded (60 s) and the
+        // clear proceeds.
+        val replies = backgroundScope.autoReply(transport) { cmd ->
+            if (cmd.size >= 2 && (cmd[0].toInt() and 0xFF) == 0x0B && (cmd[1].toInt() and 0xFF) == 0x85) {
+                lengthReply(5)
+            } else {
+                null
+            }
+        }
+
+        device.clearLog()
+        replies.cancel()
+
+        assertTrue(transport.writtenCommands.any { it.contentEquals(bytes(0x0B, 0x0A)) })
+        assertEquals(DeviceState.Idle, device.state.value)
+    }
+
+    @Test
+    fun `clearLog on MMRL skips the completion wait`() = runTest {
+        val (device, transport) = connectedDevice(loggingRevision = 2)
+
+        device.clearLog()
+
+        assertTrue(
+            transport.writtenCommands.none { it.contentEquals(bytes(0x0B, 0x0D, 0x01)) },
+            "pre-MMS boards drop synchronously — no completion channel to arm",
+        )
+        assertTrue(transport.writtenCommands.any { it.contentEquals(bytes(0x0B, 0x0A)) })
+    }
+
+    // ---- stopOnBoardLogging ----
+
+    @Test
+    fun `stopOnBoardLogging sends only the stop sampling command`() = runTest {
+        val (device, transport) = connectedDevice()
+        val before = transport.writtenCommands.size
+
+        device.stopOnBoardLogging()
+
+        // Foreign-session downloads need sampling stopped WITHOUT touching
+        // stored entries or logger subscriptions — one write, nothing else.
+        val after = transport.writtenCommands.drop(before)
+        assertEquals(1, after.size)
+        assertArrayEquals(bytes(0x0B, 0x01, 0x00), after[0])
+    }
+
     /** A trailing sample whose later chunks were cut off by the end of the download is dropped. */
     @Test
     fun `decodeEntries core drops incomplete trailing sample`() = runTest {

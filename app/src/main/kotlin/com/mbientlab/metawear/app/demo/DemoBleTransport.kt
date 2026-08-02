@@ -34,16 +34,61 @@ import kotlinx.coroutines.launch
  *
  * Pure Kotlin (no Android imports) so the whole demo pipeline is exercised by
  * JVM unit tests through the real [com.mbientlab.metawear.MetaWearDevice].
+ *
+ * Each instance wears an [Identity] — [Identity.board] mints up to 16
+ * distinguishable boards (identifier, serial, MAC, waveform phase) so
+ * multi-board flows are exercisable with a simulated fleet; the default is
+ * the legacy single demo board.
  */
 class DemoBleTransport(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val identity: Identity = Identity.board(0),
 ) : BleTransport {
 
     companion object {
-        /** Stable identifier so app-side code can recognise the demo device. */
+        /**
+         * Stable identifier so app-side code can recognise the demo device.
+         * Equal to `Identity.board(0).identifier` — the legacy single demo board.
+         */
         const val DEVICE_IDENTIFIER: String = "DE:30:DE:30:DE:30"
 
         const val DEVICE_NAME: String = "Simulated MetaWear"
+    }
+
+    /**
+     * Identity worn by one simulated board. Multiple demo boards differ in
+     * identifier, serial, MAC, and waveform phase, so multi-board flows
+     * (group logging, per-board attribution) are testable with a fleet of
+     * distinguishable fakes.
+     */
+    data class Identity(
+        val identifier: String,
+        val serial: String,
+        /** 6-byte address in wire order (LSB first) — served for Settings register 0x0B reads. */
+        val macLSBFirst: List<Int>,
+        /** Seconds added to the waveform clock so each board's traces differ. */
+        val phaseOffset: Double,
+    ) {
+        init {
+            require(macLSBFirst.size == 6) { "MAC must be 6 bytes" }
+        }
+
+        companion object {
+            /**
+             * Stable identity for demo board [index] (0..15). `board(0)` is
+             * byte-for-byte the legacy single demo device (identifier
+             * [DEVICE_IDENTIFIER], serial "DEMO01", MAC …:E0:01).
+             */
+            fun board(index: Int): Identity {
+                require(index in 0..15) { "demo board index out of range" }
+                return Identity(
+                    identifier = "DE:30:DE:30:DE:3%X".format(index),
+                    serial = "DEMO%02d".format(index + 1),
+                    macLSBFirst = listOf(0x01 + index, 0xE0, 0x0D, 0x0E, 0x3D, 0xDE),
+                    phaseOffset = index * 0.9,
+                )
+            }
+        }
     }
 
     // ---- State ----
@@ -105,7 +150,7 @@ class DemoBleTransport(
     override suspend fun read(characteristic: UUID): ByteArray = when (characteristic) {
         Uuids.manufacturerName -> "MbientLab Inc".toByteArray()
         Uuids.modelNumber -> "8".toByteArray()           // MetaMotion S
-        Uuids.serialNumber -> "DEMO01".toByteArray()
+        Uuids.serialNumber -> identity.serial.toByteArray()
         Uuids.firmwareRevision -> "1.7.3".toByteArray()
         Uuids.hardwareRevision -> "0.4".toByteArray()
         else -> ByteArray(0)
@@ -187,6 +232,14 @@ class DemoBleTransport(
                         loggers.clear()
                         nextLoggerId = 0
                     }
+                    // Firmware signals Drop Entries completion with a
+                    // page-completed notification (spec: 0x0D "sent … after
+                    // the Drop Entries command completes") — clearLog waits
+                    // for it on MMS-revision boards, and this emulator
+                    // reports MMS revision.
+                    if (register == 0x09 && ModuleRegister(0x0B, 0x0D) in subscriptions) {
+                        emit(listOf(0x0B, 0x0D))
+                    }
                 }
 
                 // ---- Timer / Event / Macro allocation ----
@@ -242,9 +295,17 @@ class DemoBleTransport(
                 module == 0x11 && reg == 0x0C ->   // battery: 87 %, 4.08 V
                     emit(listOf(0x11, register, 87, 0xF0, 0x0F))
                 module == 0x11 && reg == 0x0B ->   // MAC (7-byte form: type 0x01 + LE address)
-                    emit(listOf(0x11, register, 0x01, 0x01, 0xE0, 0x0D, 0x0E, 0x3D, 0xDE))
+                    emit(listOf(0x11, register, 0x01) + identity.macLSBFirst)
+                module == 0x0B && reg == 0x01 ->   // logging enabled? (foreign-session detection)
+                    emit(listOf(0x0B, register, if (loggingEnabled) 1 else 0))
                 module == 0x0B && reg == 0x04 -> { // logging time: tick + reset uid
-                    val tick = (elapsed() * 1000.0 / 1.46484375).toLong()
+                    // phaseOffset is a waveform-shape knob ONLY — the logging
+                    // clock must stay wall-true, or each board's
+                    // logReferenceDate skews by its offset and "simultaneous"
+                    // demo logs land misaligned across the fleet (reads as a
+                    // cross-board attribution bug in exactly the group flows
+                    // the fleet exists to validate).
+                    val tick = ((elapsed() - identity.phaseOffset) * 1000.0 / 1.46484375).toLong()
                     emit(listOf(0x0B, register) + le32(tick) + listOf(0x01))
                 }
                 module == 0x0B && reg == 0x05 ->   // log length
@@ -503,7 +564,9 @@ class DemoBleTransport(
 
     // ---- Waveforms ----
 
-    private fun elapsed(): Double = (System.nanoTime() - epochNanos) / 1e9
+    // The per-identity phase offset desynchronises the fleet's waveforms —
+    // three demo boards must not chart identical traces.
+    private fun elapsed(): Double = (System.nanoTime() - epochNanos) / 1e9 + identity.phaseOffset
 
     private fun accelRaw(t: Double): Triple<Int, Int, Int> {
         val x = 0.08 * sin(t * 1.3)

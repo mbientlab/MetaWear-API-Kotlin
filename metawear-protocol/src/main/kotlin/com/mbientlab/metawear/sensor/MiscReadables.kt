@@ -14,10 +14,41 @@ import kotlinx.datetime.Instant
 // composes with the generic `device.read(...)` helper and `device.poll(...)`:
 //
 // ```kotlin
+// val logging = device.read(LoggingEnabled()) // Timestamped<Boolean>
 // val entries = device.read(LogLength())      // Timestamped<Long>
 // val reset   = device.read(LastResetTime())  // Timestamped<Reading> — { epoch, resetUID }
 // val mac     = device.read(MacAddress())     // Timestamped<String>
 // ```
+
+/**
+ * One-shot read of whether on-board logging is currently ENABLED — i.e. the
+ * board is actively recording (Logging register `0x01` is RW).
+ *
+ * Distinct from [LogLength]: an actively-logging MMS whose first flash page is
+ * still buffering in RAM reads `LOG_LENGTH == 0`, so entry count alone cannot
+ * detect a running session — this can. Useful for spotting a board that
+ * started logging under another host before deciding how to download from it.
+ *
+ * Request:  `[0x0B, 0x81]`        (register 0x01 | READ)
+ * Response: `[0x0B, 0x81, on]` — 1 = logging, 0 = stopped.
+ */
+class LoggingEnabled : Pollable<Boolean> {
+
+    override val module: Module = Module.LOGGING
+    override val dataRegister: Int = 0x01
+
+    /** `[0x0B, 0x81]` — logging ENABLE with the read bit set. */
+    override val readCommand: ByteArray = Packet.read(Module.LOGGING, 0x01)
+
+    override fun parseSample(packet: ByteArray): Boolean {
+        if (packet.size < 3) {
+            throw MetaWearException.OperationFailed(
+                "Logging-enabled packet too short: ${packet.size} bytes",
+            )
+        }
+        return packet[2].toInt() != 0
+    }
+}
 
 /**
  * One-shot read of the on-device log entry count.
