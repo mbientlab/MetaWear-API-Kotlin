@@ -49,6 +49,9 @@ junit4 = { module = "junit:junit", version.ref = "junit4" }
 # the KTX artifact merged into room-runtime in 2.7.
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+# Annotations-only JAR: lets :app's JVM tests implement the persistence DAO
+# interface (in-memory fake) without pulling the Android Room runtime.
+androidx-room-common = { module = "androidx.room:room-common", version.ref = "room" }
 # Nordic Android DFU library — delegate/broadcast-based firmware flasher
 # wrapped into a Flow by :metawear-firmware's DfuSession.
 nordic-dfu = { module = "no.nordicsemi.android:dfu", version.ref = "nordicDfu" }

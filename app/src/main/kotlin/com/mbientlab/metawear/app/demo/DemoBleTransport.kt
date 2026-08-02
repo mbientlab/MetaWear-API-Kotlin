@@ -97,6 +97,14 @@ class DemoBleTransport(
     private var notifyChannel: Channel<ByteArray>? = null
     private var connected = false
 
+    /**
+     * Responses produced before the host's notification collector subscribes
+     * (a real cold-connect race: module-discovery reads can fire while the
+     * subscription coroutine is still being scheduled). Buffered and flushed
+     * into the channel on subscribe so no reply is ever silently dropped.
+     */
+    private val preSubscribeBacklog = mutableListOf<ByteArray>()
+
     private data class ModuleRegister(val module: Int, val register: Int)
 
     /** Registers the host subscribed to via `[module, register, 0x01]`. */
@@ -139,6 +147,7 @@ class DemoBleTransport(
             emitters.values.forEach { it.cancel() }
             emitters.clear()
             subscriptions.clear()
+            preSubscribeBacklog.clear()
             channel = notifyChannel
             notifyChannel = null
         }
@@ -158,7 +167,13 @@ class DemoBleTransport(
 
     override fun notifications(characteristic: UUID): Flow<ByteArray> {
         val channel = Channel<ByteArray>(Channel.UNLIMITED)
-        synchronized(lock) { notifyChannel = channel }
+        val backlog: List<ByteArray>
+        synchronized(lock) {
+            notifyChannel = channel
+            backlog = preSubscribeBacklog.toList()
+            preSubscribeBacklog.clear()
+        }
+        backlog.forEach { channel.trySend(it) }
         return flow {
             for (packet in channel) emit(packet)
         }
@@ -172,8 +187,15 @@ class DemoBleTransport(
     // ---- Command handling ----
 
     private fun emit(bytes: List<Int>) {
-        val channel = synchronized(lock) { notifyChannel }
-        channel?.trySend(ByteArray(bytes.size) { bytes[it].toByte() })
+        val packet = ByteArray(bytes.size) { bytes[it].toByte() }
+        val channel = synchronized(lock) {
+            val current = notifyChannel
+            if (current == null && connected && preSubscribeBacklog.size < PRE_SUBSCRIBE_BACKLOG_LIMIT) {
+                preSubscribeBacklog.add(packet)
+            }
+            current
+        }
+        channel?.trySend(packet)
     }
 
     private fun handle(command: ByteArray) {
@@ -614,3 +636,6 @@ class DemoBleTransport(
 
     private fun leFloat(value: Float): List<Int> = le32(value.toRawBits().toLong() and 0xFFFFFFFFL)
 }
+
+/** Upper bound on responses buffered before the host subscribes (see emit). */
+private const val PRE_SUBSCRIBE_BACKLOG_LIMIT = 64

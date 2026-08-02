@@ -5,9 +5,17 @@ import androidx.lifecycle.viewModelScope
 import com.mbientlab.metawear.DeviceState
 import com.mbientlab.metawear.MetaWearDevice
 import com.mbientlab.metawear.app.AppContainer
+import com.mbientlab.metawear.app.data.ForeignLogDecision
+import com.mbientlab.metawear.app.data.LogDownloader
+import com.mbientlab.metawear.app.data.OrphanLogState
 import com.mbientlab.metawear.app.data.RememberedDevice
+import com.mbientlab.metawear.app.data.foreignLogDecision
 import com.mbientlab.metawear.app.demo.DemoBleTransport
+import com.mbientlab.metawear.clearLog
 import com.mbientlab.metawear.model.BatteryState
+import com.mbientlab.metawear.queryActiveLoggers
+import com.mbientlab.metawear.sensor.LogLength
+import com.mbientlab.metawear.sensor.LoggingEnabled
 import com.mbientlab.metawear.model.DeviceInformation
 import com.mbientlab.metawear.model.ModuleInfo
 import com.mbientlab.metawear.protocol.Module
@@ -52,6 +60,13 @@ class DeviceViewModel(private val container: AppContainer) : ViewModel() {
 
     private val _isConnecting = MutableStateFlow(false)
     val isConnecting: StateFlow<Boolean> = _isConnecting.asStateFlow()
+
+    /** A foreign log discovered on connect (someone else's session) — offer download/discard. */
+    private val _foreignLog = MutableStateFlow<OrphanLogState?>(null)
+    val foreignLog: StateFlow<OrphanLogState?> = _foreignLog.asStateFlow()
+
+    private val _foreignStatus = MutableStateFlow<String?>(null)
+    val foreignStatus: StateFlow<String?> = _foreignStatus.asStateFlow()
 
     /** Display name: advertised name, remembered name, or the identifier. */
     val displayName: String
@@ -101,7 +116,69 @@ class DeviceViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             _macAddress.value = runCatching { device.read(Settings.ReadMacAddress()).value }.getOrNull()
         }
+        viewModelScope.launch { evaluateForeignLog(device) }
         startBatteryPolling(device)
+    }
+
+    /**
+     * Decide what to do about any log on the board's flash: this app's own
+     * pending session is left alone; decodable foreign data (or a session in
+     * progress) is surfaced for download/discard; undecodable leftover
+     * entries are cleared silently.
+     */
+    private suspend fun evaluateForeignLog(device: MetaWearDevice) {
+        val entryCount = runCatching { device.read(LogLength()).value }.getOrNull() ?: return
+        val loggingEnabled = runCatching { device.read(LoggingEnabled()).value }.getOrNull() ?: false
+        // null = enumeration failed → err on the side of surfacing.
+        val hasActiveLoggers = runCatching { device.queryActiveLoggers().isNotEmpty() }.getOrNull()
+        val hasLocalPending = container.logSessions.pendingFor(device.identifier).isNotEmpty()
+
+        when (val decision = foreignLogDecision(entryCount, hasActiveLoggers, loggingEnabled, hasLocalPending)) {
+            is ForeignLogDecision.Surface ->
+                _foreignLog.value = OrphanLogState(entryCount, device.identifier, decision.isActivelyLogging)
+            ForeignLogDecision.SilentClear -> {
+                runCatching { device.clearLog() }
+                _foreignLog.value = null
+            }
+            ForeignLogDecision.LeaveAlone -> _foreignLog.value = null
+        }
+    }
+
+    /** Recover the surfaced foreign log into session history. */
+    fun downloadForeignLog() {
+        val device = device ?: return
+        val state = _foreignLog.value ?: return
+        viewModelScope.launch {
+            _foreignStatus.value = "Recovering the board's log…"
+            val result = LogDownloader.downloadForeign(
+                device, container.persistence, state,
+                deviceName = container.displayNameFor(device.identifier),
+            )
+            if (result.failed) {
+                _foreignStatus.value = result.message
+            } else {
+                _foreignLog.value = null
+                _foreignStatus.value = result.warning
+                    ?: "Recovered ${result.snapshots.size} session(s) into history"
+            }
+        }
+    }
+
+    /** Discard the surfaced foreign log (erases the board's entries). */
+    fun discardForeignLog() {
+        val device = device ?: return
+        viewModelScope.launch {
+            runCatching { device.clearLog() }
+                .onSuccess {
+                    _foreignLog.value = null
+                    _foreignStatus.value = "Foreign log discarded"
+                }
+                .onFailure { _lastError.value = it.message }
+        }
+    }
+
+    fun clearForeignStatus() {
+        _foreignStatus.value = null
     }
 
     private fun startBatteryPolling(device: MetaWearDevice) {

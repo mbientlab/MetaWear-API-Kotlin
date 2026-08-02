@@ -37,4 +37,16 @@ class ExportFilenameTest {
         assertFalse(name.contains("/"))
         assertFalse(name.contains("#"))
     }
+
+    @Test
+    fun `discriminator makes same-second filenames distinct`() {
+        val a = ExportFilename.make("MetaWear", "accel", timestamp, utc, discriminator = "3F2A")
+        val b = ExportFilename.make("MetaWear", "accel", timestamp, utc, discriminator = "9C01")
+        assertTrue(a != b)
+        assertTrue(a.endsWith("-3F2A.csv"))
+        // The legacy (no-discriminator) shape has no double dash and is unchanged.
+        val legacy = ExportFilename.make("MetaWear", "accel", timestamp, utc)
+        assertFalse(legacy.contains("--"))
+        assertEquals("MetaWear-accel-2024-12-25-14-30-45.csv", legacy)
+    }
 }

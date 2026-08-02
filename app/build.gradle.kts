@@ -58,9 +58,11 @@ dependencies {
     implementation(libs.androidx.core.ktx)
 
     // JVM unit tests: RingBuffer, Channel decimation, CSV export, filenames,
-    // bandwidth advisor, demo-transport round trips.
+    // bandwidth advisor, demo-transport round trips, group-capture walks.
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
+    // Room's annotation JAR so tests can implement PersistenceDao in memory.
+    testImplementation(libs.androidx.room.common)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

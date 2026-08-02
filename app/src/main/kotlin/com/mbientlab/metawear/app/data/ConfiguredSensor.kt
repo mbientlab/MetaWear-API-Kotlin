@@ -359,6 +359,8 @@ suspend fun ConfiguredSensor.decodeAndSave(
     store: PersistenceStore,
     entries: List<RawLogEntry>,
     deviceInfo: DeviceInformation,
+    deviceName: String? = null,
+    groupID: String? = null,
 ): SessionSnapshot? {
     suspend fun <S : Any> save(samples: List<LoggedSample<S>>, persistable: Persistable<S>): SessionSnapshot? {
         if (samples.isEmpty()) return null
@@ -369,6 +371,8 @@ suspend fun ConfiguredSensor.decodeAndSave(
             samples = samples,
             persistable = persistable,
             label = selection.displayLabel,
+            deviceName = deviceName,
+            groupID = groupID,
         )
     }
 
@@ -419,6 +423,8 @@ suspend fun ConfiguredSensor.saveLiveBuffer(
     deviceInfo: DeviceInformation,
     samples: List<AnyChartSample>,
     startedAt: Instant,
+    deviceName: String? = null,
+    groupID: String? = null,
 ): SessionSnapshot? {
     if (samples.isEmpty()) return null
 
@@ -432,6 +438,8 @@ suspend fun ConfiguredSensor.saveLiveBuffer(
             samples = samples.map { LoggedSample(date = it.time, tickMs = tickMs(it.time), value = value(it)) },
             persistable = persistable,
             label = selection.displayLabel,
+            deviceName = deviceName,
+            groupID = groupID,
         )
 
     return when (this) {

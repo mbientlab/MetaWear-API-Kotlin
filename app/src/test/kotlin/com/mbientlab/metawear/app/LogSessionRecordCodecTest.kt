@@ -54,4 +54,18 @@ class LogSessionRecordCodecTest {
         val encoded = "garbage line\n\n" + LogSessionRecordCodec.encode(listOf(polled))
         assertEquals(listOf(polled), LogSessionRecordCodec.decode(encoded))
     }
+
+    @Test
+    fun `group id and led event ids survive the round trip`() {
+        val grouped = streamed.copy(
+            id = "id-3",
+            groupID = "batch-42",
+            ledEventIds = listOf(4, 5),
+        )
+        val decoded = LogSessionRecordCodec.decode(LogSessionRecordCodec.encode(listOf(grouped, streamed)))
+        assertEquals("batch-42", decoded[0].groupID)
+        assertEquals(listOf(4, 5), decoded[0].ledEventIds)
+        assertEquals(null, decoded[1].groupID)
+        assertEquals(emptyList<Int>(), decoded[1].ledEventIds)
+    }
 }

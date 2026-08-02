@@ -49,7 +49,7 @@ private fun requiredBlePermissions(): Array<String> =
     }
 
 @Composable
-fun ScanScreen(onDeviceSelected: () -> Unit) {
+fun ScanScreen(onDeviceSelected: () -> Unit, onGroupLogging: () -> Unit = {}) {
     val vm = appViewModel(::ScannerViewModel)
     val context = LocalContext.current
 
@@ -130,6 +130,12 @@ fun ScanScreen(onDeviceSelected: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(if (isScanning) "Stop Scanning" else "Start Scanning")
+            }
+        }
+
+        item {
+            TextButton(onClick = onGroupLogging, modifier = Modifier.fillMaxWidth()) {
+                Text("Group Logging — record several boards at once")
             }
         }
 

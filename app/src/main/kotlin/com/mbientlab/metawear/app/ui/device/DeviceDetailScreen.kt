@@ -49,6 +49,8 @@ fun DeviceDetailScreen(onNavigate: (String) -> Unit, onDisconnected: () -> Unit)
     val battery by vm.battery.collectAsState()
     val isConnecting by vm.isConnecting.collectAsState()
     val lastError by vm.lastError.collectAsState()
+    val foreignLog by vm.foreignLog.collectAsState()
+    val foreignStatus by vm.foreignStatus.collectAsState()
 
     LazyColumn(
         modifier = Modifier
@@ -75,6 +77,46 @@ fun DeviceDetailScreen(onNavigate: (String) -> Unit, onDisconnected: () -> Unit)
         }
 
         item { ErrorBanner(lastError) { vm.clearError() } }
+
+        foreignLog?.let { orphan ->
+            item {
+                GlassCard {
+                    Text("Log from another session", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        buildString {
+                            append("This board carries a log this app didn't start")
+                            if (orphan.entryCount > 0) append(" (${orphan.entryCount} entries)")
+                            if (orphan.isActivelyLogging) append(" — and it is still recording")
+                            append(". Recover it into session history, or discard it.")
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GlassTextDim,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { vm.downloadForeignLog() }) { Text("Download") }
+                        TextButton(onClick = { vm.discardForeignLog() }) { Text("Discard") }
+                    }
+                }
+            }
+        }
+        foreignStatus?.let { status ->
+            item {
+                GlassCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            status,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { vm.clearForeignStatus() }) { Text("OK") }
+                    }
+                }
+            }
+        }
 
         item {
             GlassCard {

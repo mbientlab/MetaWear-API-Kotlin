@@ -12,6 +12,7 @@ import com.mbientlab.metawear.app.ui.controls.ControlsScreen
 import com.mbientlab.metawear.app.ui.device.DeviceDetailScreen
 import com.mbientlab.metawear.app.ui.device.DeviceInfoScreen
 import com.mbientlab.metawear.app.ui.firmware.FirmwareScreen
+import com.mbientlab.metawear.app.ui.logging.GroupLoggingScreen
 import com.mbientlab.metawear.app.ui.logging.LoggingScreen
 import com.mbientlab.metawear.app.ui.scan.ScanScreen
 import com.mbientlab.metawear.app.ui.sessions.SessionsScreen
@@ -31,8 +32,12 @@ fun AppNavHost() {
             .background(MaterialTheme.colorScheme.background),
     ) {
         composable("scan") {
-            ScanScreen(onDeviceSelected = { navController.navigate("device") })
+            ScanScreen(
+                onDeviceSelected = { navController.navigate("device") },
+                onGroupLogging = { navController.navigate("group") },
+            )
         }
+        composable("group") { GroupLoggingScreen() }
         composable("device") {
             DeviceDetailScreen(
                 onNavigate = { route -> navController.navigate(route) },

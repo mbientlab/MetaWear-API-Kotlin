@@ -36,13 +36,21 @@ class LiveBufferCsvExporterTest {
     }
 
     @Test
-    fun `quaternion export carries four channels`() {
+    fun `quaternion export carries four channels plus derived euler columns`() {
         val samples = listOf(
             AnyChartSample.of(time, 1f, 0f, 0f, 0f, channelCount = 4),
         )
         val csv = LiveBufferCsvExporter.export(samples, SensorSelection(SensorKey.FUSION_QUATERNION))
         val lines = csv.trimEnd().split("\n")
-        assertEquals("time,w,x,y,z", lines[0])
-        assertEquals("$time,1.000000,0.000000,0.000000,0.000000", lines[1])
+        assertEquals("time,w,x,y,z,heading,pitch,roll", lines[0])
+        // Identity orientation → all derived angles print as exactly zero.
+        assertEquals("$time,1.000000,0.000000,0.000000,0.000000,0.0000,0.0000,0.0000", lines[1])
+    }
+
+    @Test
+    fun `non-quaternion export gains no derived columns`() {
+        val samples = listOf(AnyChartSample.of(time, 1f, 2f, 3f, channelCount = 3))
+        val csv = LiveBufferCsvExporter.export(samples, SensorSelection(SensorKey.GYROSCOPE))
+        assertEquals("time,x,y,z", csv.trimEnd().split("\n")[0])
     }
 }

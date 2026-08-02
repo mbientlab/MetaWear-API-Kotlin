@@ -38,8 +38,8 @@ vertical slice — scan → connect → `startStream(accelerometer)` →
 `Flow<Timestamped<CartesianFloat>>` — runs end-to-end against `MockBleTransport`
 on the JVM, and against real hardware via `:metawear-core`'s smoke suite.
 
-The repo carries **1173 JVM tests** across the four testable modules
-(1004 protocol + 42 persistence + 66 firmware + 61 app), plus instrumented
+The repo carries **1273 JVM tests** across the four testable modules
+(1041 protocol + 46 persistence + 66 firmware + 120 app), plus instrumented
 suites that need a device.
 
 ## What's in `:metawear-protocol`
@@ -87,7 +87,7 @@ per-processor-id flows, so multiple processors stream simultaneously; the
 flows complete cleanly on an intentional disconnect and fail with the
 underlying error on an unexpected one.
 
-**1004 JVM tests** cover this module, including reference byte vectors from
+**1041 JVM tests** cover this module, including reference byte vectors from
 the MetaWear C++ SDK's Python test suite.
 
 ## What's in `:metawear-core`
@@ -206,12 +206,19 @@ A Jetpack Compose demo app, lean but feature-complete:
   polled sensors get a latest-value tile (fed by `device.poll` one-shot
   reads) plus the same chart; the quaternion output additionally renders a
   live 3D orientation cube (a dependency-free Canvas wireframe with
-  orthographic projection and depth cueing).
+  orthographic projection and depth cueing) that is **tared**: it shows
+  rotation since a reference pose (auto-set from the first valid sample,
+  re-zeroed by the Zero button) through the IMU's 90° mounting correction —
+  the raw quaternion's absolute frame isn't stable session-to-session. While
+  a fusion output streams, a calibration badge polls the accuracy state every
+  2 s and coaches per sensor; the bar is MEDIUM, since HIGH is a live score
+  the magnetometer legitimately loses indoors.
   The charting hot path keeps sensor-rate work off the UI: samples ingest
   into plain ring buffers on a background coroutine (full-resolution capture
   + 1-in-N decimated display ring) and a ~33 ms ticker snapshots into Compose
   state — nothing touches UI state at sensor rate. Stop archives each channel
-  to session history; buffers export as CSV.
+  to session history; buffers export as CSV (quaternion buffers gain derived
+  `heading,pitch,roll` columns matching the firmware's Euler convention).
 - **Logging** — start/stop multi-sensor flash logging, elapsed clock, then a
   single raw download drain with progress, per-sensor typed decode, and
   persistence via `PersistenceStore`. Polled environmental sensors log
@@ -221,13 +228,31 @@ A Jetpack Compose demo app, lean but feature-complete:
   board-allocated polled-logger handles) are persisted, so they survive
   process death: on the next download the SDK's `recoverLoggers` rebuilds the
   chunk registry from the board's trigger table before decoding.
-- **Sessions** — history list (label, sample count, time span) with
-  `epoch,elapsed_ms,…` CSV export shared through the system sheet
-  (FileProvider + `ACTION_SEND`) and delete.
+- **Group logging** — record the same sensors across a fleet of boards under
+  one shared group id: boards are armed sequentially (connect → clear → start
+  → verify entries actually land → disconnect), blink a gentle red recording
+  heartbeat that re-arms itself via on-board disconnect events (event ids
+  persisted for cleanup across app restarts), then stop + download the whole
+  batch with per-board progress. A board carrying a **foreign log** (someone
+  else's session) is detected on connect via a pure decision table — surfaced
+  for download/discard when decodable, cleared silently when it's undecodable
+  garbage, left alone when it's this app's own pending session. Foreign
+  downloads rebuild decoders from the board's own logger configuration
+  (anonymous signals) and label recovered sessions by signal identity.
+- **Sessions** — history grouped by board identity (serial-keyed; titles
+  prefer the freshest stamped name, then the MAC; shared names get
+  disambiguated), swipe-to-delete with optimistic store delete, per-sample-
+  type chart styles recovered from the stored kind + capture-time label,
+  a 3D quaternion **replay** with play/pause/scrub timeline and 1×/2×/4×
+  speeds, and `epoch,elapsed_ms,…` CSV export (quaternion sessions include
+  derived Euler columns; filenames carry the capture-time board name and a
+  session-id discriminator) shared through the system sheet.
 - **Controls** — LED color/pattern presets with play/stop, haptic motor
   strength/pulse-width sliders, buzzer pulse.
 - **Settings** — validated advertising rename, advertising interval/timeout,
-  TX power, and a confirm-dialog factory reset.
+  TX power, a **Maintenance** section (LED reset, macro clear, event + timer
+  clear, restart-without-erase — each scoped so users don't reach for factory
+  reset), and a confirm-dialog factory reset.
 - **Firmware** — catalog update check plus a Nordic-DFU update flow with
   state/progress UI.
 - **Demo mode** — `DemoBleTransport`, a protocol-level MetaMotion S emulator:
@@ -235,10 +260,18 @@ A Jetpack Compose demo app, lean but feature-complete:
   pressure / illuminance / log reads, synthetic waveforms on every sensor
   including packed registers, fusion outputs, altitude, and ambient light,
   and full logging round trips — streamed, the polled timer/event chain, and
-  recovery across a simulated process restart. The scan screen offers it via
-  a toggle (and suggests it when Bluetooth is off), so the entire app runs on
-  an emulator with no hardware. The demo pipeline is exercised end-to-end by
-  JVM unit tests through the real `MetaWearDevice`.
+  recovery across a simulated process restart. The identity fleet (up to 16
+  distinguishable boards) backs a three-board simulated fleet in the app, so
+  group logging works end-to-end with no hardware. The scan screen offers
+  demo mode via a toggle (and suggests it when Bluetooth is off). The demo
+  pipeline — including full group-capture walks against the real persistence
+  store — is exercised end-to-end by JVM unit tests through the real
+  `MetaWearDevice`.
+
+The 3D orientation view is deliberately a Canvas wireframe cube: the
+photoreal case model, button/LED window materials, and scene lighting of a
+full 3D asset pipeline have no dependency-free equivalent, and only the
+quaternion frame math is load-bearing.
 
 Install on a device or emulator:
 

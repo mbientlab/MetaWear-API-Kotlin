@@ -48,8 +48,7 @@ fun availableSensors(modules: Map<Module, ModuleInfo>): List<SensorKey> {
 /**
  * Multi-select sensor picker with per-sensor rate/range chips (streamed) or
  * polling-interval chips (polled readables), plus the bandwidth advisory.
- * Shared by the live-stream and logging screens (port of `SensorConfigView` +
- * `SensorPickerSection`).
+ * Shared by the live-stream and logging screens.
  *
  * @param loggingMode hides stream-only signals (altitude) that can't be
  *   captured to flash.
@@ -60,8 +59,12 @@ fun SensorConfigSection(
     selections: List<SensorSelection>,
     onSelectionsChange: (List<SensorSelection>) -> Unit,
     loggingMode: Boolean = false,
+    /** Kinds hidden outright (e.g. group logging excludes temperature/humidity). */
+    excludeKeys: Set<SensorKey> = emptySet(),
 ) {
-    val available = availableSensors(modules).filter { !loggingMode || it.canLog }
+    val available = availableSensors(modules)
+        .filter { !loggingMode || it.canLog }
+        .filterNot { it in excludeKeys }
     val motion = available.filterNot { it.isEnvironmental }
     val environmental = available.filter { it.isEnvironmental }
 

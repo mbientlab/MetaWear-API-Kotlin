@@ -45,6 +45,9 @@ fun SettingsScreen(onFactoryReset: () -> Unit) {
     var timeoutSec by remember { mutableStateOf("0") }
     var txPower by remember { mutableStateOf(Settings.TxPower.ZERO) }
     var showResetDialog by remember { mutableStateOf(false) }
+    var showClearMacrosDialog by remember { mutableStateOf(false) }
+    var showClearEventsDialog by remember { mutableStateOf(false) }
+    var showRestartDialog by remember { mutableStateOf(false) }
 
     androidx.compose.runtime.LaunchedEffect(didFactoryReset) {
         // Board rebooted; return to the device hub, which offers Reconnect.
@@ -128,6 +131,35 @@ fun SettingsScreen(onFactoryReset: () -> Unit) {
             }
         }
 
+        item { SectionHeader("Maintenance") }
+        item {
+            GlassCard {
+                Button(
+                    onClick = { vm.resetLed() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Reset LED") }
+                Button(
+                    onClick = { showClearMacrosDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Clear Macros…") }
+                Button(
+                    onClick = { showClearEventsDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Clear Events & Timers…") }
+                Button(
+                    onClick = { showRestartDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Restart Board…") }
+                Text(
+                    "Reset LED stops and clears the light immediately — if it relights after a " +
+                        "disconnect, an on-board event is re-arming it; use Clear Events & Timers. " +
+                        "Restart reboots the board without erasing logs or macros.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GlassTextDim,
+                )
+            }
+        }
+
         item { SectionHeader("Danger zone") }
         item {
             GlassCard {
@@ -144,6 +176,68 @@ fun SettingsScreen(onFactoryReset: () -> Unit) {
                 ) { Text("Factory Reset…") }
             }
         }
+    }
+
+    if (showClearMacrosDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearMacrosDialog = false },
+            title = { Text("Clear macros?") },
+            text = { Text("Removes every on-boot macro recorded on the board.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showClearMacrosDialog = false
+                    vm.clearMacros()
+                }) { Text("Clear Macros", color = GlassError) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearMacrosDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showClearEventsDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearEventsDialog = false },
+            title = { Text("Clear events & timers?") },
+            text = {
+                Text(
+                    "Removes every on-board event binding and timer — from ALL apps, including " +
+                        "this one's recording heartbeat. Use this if the LED keeps relighting " +
+                        "after disconnects.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showClearEventsDialog = false
+                    vm.clearEvents()
+                }) { Text("Clear Events & Timers", color = GlassError) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearEventsDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showRestartDialog) {
+        AlertDialog(
+            onDismissRequest = { showRestartDialog = false },
+            title = { Text("Restart the board?") },
+            text = {
+                Text(
+                    "Reboots the board without erasing anything — logs and macros survive. " +
+                        "The board will disconnect.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRestartDialog = false
+                    vm.restart()
+                }) { Text("Restart") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRestartDialog = false }) { Text("Cancel") }
+            },
+        )
     }
 
     if (showResetDialog) {

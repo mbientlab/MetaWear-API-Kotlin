@@ -27,9 +27,10 @@ import com.mbientlab.metawear.app.export.ExportFilename
 import com.mbientlab.metawear.app.export.LiveBufferCsvExporter
 import com.mbientlab.metawear.app.ui.appViewModel
 import com.mbientlab.metawear.app.ui.components.ErrorBanner
+import com.mbientlab.metawear.app.ui.components.FusionCalibrationBadge
 import com.mbientlab.metawear.app.ui.components.GlassCard
 import com.mbientlab.metawear.app.ui.components.LineChart
-import com.mbientlab.metawear.app.ui.components.QuaternionCubeView
+import com.mbientlab.metawear.app.ui.components.TaredQuaternionCube
 import com.mbientlab.metawear.app.ui.theme.ChannelColors
 import com.mbientlab.metawear.app.ui.theme.FourChannelColors
 import com.mbientlab.metawear.app.ui.theme.GlassTextDim
@@ -50,6 +51,8 @@ fun LiveStreamScreen() {
     val isPaused by vm.isPaused.collectAsState()
     val isBusy by vm.isBusy.collectAsState()
     val lastError by vm.lastError.collectAsState()
+
+    val calibration by vm.calibration.collectAsState()
 
     var selections by remember {
         mutableStateOf(listOf(SensorSelection(SensorKey.ACCELEROMETER)))
@@ -97,6 +100,8 @@ fun LiveStreamScreen() {
                     ) { Text("Stop & Save") }
                 }
             }
+
+            calibration?.let { item { FusionCalibrationBadge(it) } }
 
             items(channels, key = { it.id }) { channel ->
                 ChannelCard(channel)
@@ -151,10 +156,10 @@ private fun ChannelCard(channel: Channel) {
                 color = GlassTextDim,
             )
         } else {
-            // Live 3D orientation cube for the quaternion output — a
-            // dependency-free Canvas 3D rendering.
-            if (channel.selection.key == SensorKey.FUSION_QUATERNION && latest != null) {
-                QuaternionCubeView(w = latest.f0, x = latest.f1, y = latest.f2, z = latest.f3)
+            // Live 3D orientation cube for the quaternion output — tared to
+            // a reference pose, with a Zero button to re-zero on demand.
+            if (channel.selection.key == SensorKey.FUSION_QUATERNION) {
+                TaredQuaternionCube(latest = latest)
             }
             LineChart(
                 samples = ui.displayBuffer,

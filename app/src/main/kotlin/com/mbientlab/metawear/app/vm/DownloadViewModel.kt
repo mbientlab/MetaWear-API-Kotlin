@@ -3,13 +3,9 @@ package com.mbientlab.metawear.app.vm
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mbientlab.metawear.MetaWearDevice
-import com.mbientlab.metawear.RawLogEntry
 import com.mbientlab.metawear.app.AppContainer
-import com.mbientlab.metawear.app.data.ConfiguredSensor
+import com.mbientlab.metawear.app.data.LogDownloader
 import com.mbientlab.metawear.app.data.LogSessionRecord
-import com.mbientlab.metawear.app.data.decodeAndSave
-import com.mbientlab.metawear.clearLog
-import com.mbientlab.metawear.downloadLogs
 import com.mbientlab.metawear.persistence.SessionSnapshot
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,10 +13,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Flash-log download orchestration: one
- * raw drain of the board's circular log, then per-record typed decode + save
- * (downloading per sensor would re-trigger the readout and find the log
- * already empty), then a single `clearLog()` once everything decoded.
+ * Flash-log download orchestration for the solo logging screen. The heavy
+ * lifting — single raw drain, per-record typed decode, attribution stamps,
+ * board clear — lives in [LogDownloader], shared with the group coordinator.
  */
 class DownloadViewModel(private val container: AppContainer) : ViewModel() {
 
@@ -41,47 +36,20 @@ class DownloadViewModel(private val container: AppContainer) : ViewModel() {
         if (_phase.value is Phase.Downloading || records.isEmpty()) return
         viewModelScope.launch {
             _phase.value = Phase.Downloading(0.0, 0, null)
-            try {
-                // 1. Single raw drain, tracking progress.
-                var entries: List<RawLogEntry> = emptyList()
-                device.downloadLogs().collect { progress ->
-                    entries = progress.data
-                    _phase.value = Phase.Downloading(
-                        progress = progress.percentComplete,
-                        entries = progress.entriesDownloaded ?: entries.size.toLong(),
-                        total = progress.totalEntries,
-                    )
-                }
-
-                // 2. Typed decode + persist per record.
-                val snapshots = mutableListOf<SessionSnapshot>()
-                var warning: String? = null
-                val info = device.deviceInfo
-                for (record in records) {
-                    if (info == null) break
-                    val sensor = ConfiguredSensor.make(record.selection, device.modules)
-                    runCatching { sensor.decodeAndSave(device, container.persistence, entries, info) }
-                        .onSuccess { snapshot ->
-                            if (snapshot != null) {
-                                snapshots.add(snapshot)
-                                container.logSessions.updateStatus(record.id, LogSessionRecord.Status.DOWNLOADED)
-                            } else {
-                                warning = "No samples decoded for ${record.selection.key.title}"
-                                container.logSessions.updateStatus(record.id, LogSessionRecord.Status.FAILED)
-                            }
-                        }
-                        .onFailure {
-                            warning = it.message
-                            container.logSessions.updateStatus(record.id, LogSessionRecord.Status.FAILED)
-                        }
-                }
-
-                // 3. Clear the board's flash once everything is decoded.
-                runCatching { device.clearLog() }
-
-                _phase.value = Phase.Ready(snapshots, warning)
-            } catch (e: Exception) {
-                _phase.value = Phase.Failed(e.message ?: "Download failed")
+            val result = LogDownloader.downloadAll(
+                device = device,
+                persistence = container.persistence,
+                registry = container.logSessions,
+                records = records,
+                deviceName = container.displayNameFor(device.identifier),
+                onProgress = { fraction, entries, total ->
+                    _phase.value = Phase.Downloading(fraction, entries, total)
+                },
+            )
+            _phase.value = if (result.failed) {
+                Phase.Failed(result.message ?: "Download failed")
+            } else {
+                Phase.Ready(result.snapshots, result.warning)
             }
         }
     }

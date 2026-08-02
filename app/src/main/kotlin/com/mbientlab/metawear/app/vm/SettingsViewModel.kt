@@ -5,14 +5,19 @@ import androidx.lifecycle.viewModelScope
 import com.mbientlab.metawear.MetaWearDevice
 import com.mbientlab.metawear.app.AppContainer
 import com.mbientlab.metawear.sensor.Settings
+import com.mbientlab.metawear.sensor.eraseAllMacros
+import com.mbientlab.metawear.sensor.removeAllEvents
+import com.mbientlab.metawear.sensor.removeAllTimers
+import com.mbientlab.metawear.sensor.stopLed
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Device settings: advertising name, advertising parameters, TX power, and
- * the factory-reset flow.
+ * Device settings: advertising name, advertising parameters, TX power,
+ * board maintenance (LED reset, macro/event clears, restart), and the
+ * factory-reset flow.
  */
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
@@ -35,9 +40,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             runCatching { device.send(Settings.SetDeviceName.validating(name)) }
                 .onSuccess {
-                    // Forget the cached advertised name so the rename is
-                    // verified against a fresh advertisement on next scan.
-                    container.scanner.clearAdvertisedName(device.identifier)
+                    // The cache is known-stale after a rename (a connected
+                    // board doesn't advertise) — inject the expected name so
+                    // UI updates immediately; the next real advertisement
+                    // reconciles it.
+                    container.scanner.noteAdvertisedName(device.identifier, name)
                     _statusMessage.value = "Name set to \"$name\" — takes effect on next advertisement"
                 }
                 .onFailure { _lastError.value = it.message }
@@ -86,6 +93,54 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                     _didFactoryReset.value = true
                     _statusMessage.value = "Factory reset sent — the board is rebooting"
                 }
+                .onFailure { _lastError.value = it.message }
+        }
+    }
+
+    // ---- Maintenance ----
+    // Field-recovery actions for a misbehaving board, each scoped to one
+    // subsystem so users don't reach for factory reset (which costs data).
+
+    /** Stop LED playback and erase all configured patterns. */
+    fun resetLed() {
+        runMaintenance("LED reset") { it.stopLed(clearPattern = true) }
+    }
+
+    /** Erase every recorded macro (flash-resident command replays). */
+    fun clearMacros() {
+        runMaintenance("Macros erased") { it.eraseAllMacros() }
+    }
+
+    /** Remove every event binding and timer (from ALL apps, this one's included). */
+    fun clearEvents() {
+        runMaintenance("Events & timers cleared") {
+            it.removeAllEvents()
+            it.removeAllTimers()
+        }
+    }
+
+    /**
+     * Reboot the board WITHOUT erasing anything — log entries and macros
+     * survive; wedged volatile state (timers, sensor enables, a stuck NAND
+     * pass) clears. The link drops; the device screen offers Reconnect.
+     */
+    fun restart() {
+        val device = device ?: return
+        viewModelScope.launch {
+            runCatching { device.restart() }
+                .onSuccess {
+                    _didFactoryReset.value = true   // same "board rebooting" navigation as factory reset
+                    _statusMessage.value = "Restart sent — the board is rebooting"
+                }
+                .onFailure { _lastError.value = it.message }
+        }
+    }
+
+    private fun runMaintenance(successMessage: String, action: suspend (MetaWearDevice) -> Unit) {
+        val device = device ?: return
+        viewModelScope.launch {
+            runCatching { action(device) }
+                .onSuccess { _statusMessage.value = successMessage }
                 .onFailure { _lastError.value = it.message }
         }
     }

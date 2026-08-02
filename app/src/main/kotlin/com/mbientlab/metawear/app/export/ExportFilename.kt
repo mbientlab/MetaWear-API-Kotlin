@@ -12,15 +12,22 @@ import kotlinx.datetime.toLocalDateTime
  */
 object ExportFilename {
 
+    /**
+     * @param discriminator Optional short unique suffix (e.g. a session-id
+     *   prefix) so same-second exports from several boards can't overwrite
+     *   each other's temp files.
+     */
     fun make(
         deviceName: String,
         sensorTag: String,
         timestamp: Instant,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
+        discriminator: String? = null,
     ): String {
         val device = sanitize(deviceName).ifEmpty { "MetaWear" }
         val sensor = sanitize(sensorTag).ifEmpty { "sensor" }
-        return "$device-$sensor-${format(timestamp, timeZone)}.csv"
+        val suffix = discriminator?.let(::sanitize)?.takeIf { it.isNotEmpty() }?.let { "-$it" } ?: ""
+        return "$device-$sensor-${format(timestamp, timeZone)}$suffix.csv"
     }
 
     /** Keep letters, digits, `_`, and `-`; drop everything else. */

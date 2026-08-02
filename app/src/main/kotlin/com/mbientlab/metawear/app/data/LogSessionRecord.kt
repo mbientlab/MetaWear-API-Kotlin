@@ -30,6 +30,17 @@ data class LogSessionRecord(
      * across app restarts. `null` for streamed sensors.
      */
     val polledHandles: PolledLoggerHandles? = null,
+    /**
+     * Group-capture batch this session belongs to (stamped onto the saved
+     * session for history grouping). `null` for solo captures.
+     */
+    val groupID: String? = null,
+    /**
+     * Board-assigned ids of the disconnect events arming the recording LED
+     * heartbeat — persisted so cleanup survives app restarts (the bindings
+     * live on the board, not in this process). Empty when not armed.
+     */
+    val ledEventIds: List<Int> = emptyList(),
 ) {
     enum class Status {
         /** Logger active on the board. */
@@ -71,6 +82,8 @@ object LogSessionRecordCodec {
                 r.polledHandles?.let { h ->
                     "${h.timerID},${h.eventID},${h.loggerIDs.joinToString("+")}"
                 } ?: EMPTY,
+                r.groupID ?: EMPTY,
+                r.ledEventIds.joinToString("+"),
             ).joinToString(FIELD_SEP)
         }
 
@@ -95,6 +108,11 @@ object LogSessionRecordCodec {
                 startDate = Instant.fromEpochMilliseconds(f[6].toLongOrNull() ?: 0L),
                 status = status,
                 polledHandles = f.getOrNull(8)?.takeIf { it.isNotEmpty() }?.let(::decodeHandles),
+                // Columns 9-10 arrived with group capture and the LED
+                // heartbeat; older stored lines simply lack them.
+                groupID = f.getOrNull(9)?.takeIf { it.isNotEmpty() },
+                ledEventIds = f.getOrNull(10)?.takeIf { it.isNotEmpty() }
+                    ?.split("+")?.mapNotNull { it.toIntOrNull() } ?: emptyList(),
             )
         }
 
@@ -141,6 +159,17 @@ class LogSessionRegistry(private val prefs: SharedPreferences? = null) {
 
     fun updateStatus(id: String, status: LogSessionRecord.Status) {
         commit(_records.value.map { if (it.id == id) it.copy(status = status) else it })
+    }
+
+    /** Replace one record via [transform] (e.g. stamping LED event ids). */
+    fun update(id: String, transform: (LogSessionRecord) -> LogSessionRecord) {
+        commit(_records.value.map { if (it.id == id) transform(it) else it })
+    }
+
+    /** Remove records outright (zombie sessions that never landed entries). */
+    fun remove(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        commit(_records.value.filterNot { it.id in ids })
     }
 
     fun pendingFor(deviceId: String): List<LogSessionRecord> =
