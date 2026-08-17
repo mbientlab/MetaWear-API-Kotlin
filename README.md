@@ -106,7 +106,7 @@ metawear-android/
 
 The modules are intentionally split so an app can take just protocol + core without pulling in Room or the DFU library. `:metawear-protocol` is the foundation everything else builds on, written test-first to lock wire-format correctness before any BLE code. The full vertical slice — scan → connect → `startStream(accelerometer)` → `Flow<Timestamped<CartesianFloat>>` — runs end-to-end against `MockBleTransport` on the JVM, and against real hardware via `:metawear-core`'s instrumented suites.
 
-The repo carries **1274 JVM tests** across the four testable modules (1042 protocol + 46 persistence + 66 firmware + 120 app), plus **43 BLE + 13 persistence instrumented tests** that need a phone (both hardware-verified on a Pixel 7 + MetaMotion S).
+The repo carries **1275 JVM tests** across the four testable modules (1043 protocol + 46 persistence + 66 firmware + 120 app), plus **43 BLE + 13 persistence instrumented tests** that need a phone (both hardware-verified on a Pixel 7 + MetaMotion S).
 
 ---
 
@@ -120,12 +120,12 @@ The repo carries **1274 JVM tests** across the four testable modules (1042 proto
 |------|--------------|
 | **Scan & connect** | Runtime BLE permission flow, nearby MetaMotion boards with live name + RSSI from the scanner's `StateFlow`s, remembered devices persisted by MAC, reconnect |
 | **Device hub** | Connection state badge, model / firmware / battery summary, identify (LED flash), reconnect / disconnect, feature navigation |
-| **Live stream** | Multi-sensor picker — a "Motion & Fusion" section (accelerometer, gyroscope, magnetometer, and all seven sensor-fusion outputs, with ODR/range chips and a 100 Hz BLE bandwidth advisor) and an "Environmental" section (polled temperature / humidity / pressure with a 1 s–5 min interval picker, plus streamed barometer pressure, altitude, and ambient light). Canvas line charts, live readouts, true effective-Hz, a tared 3D orientation cube on the quaternion output, and a fusion calibration badge |
-| **Logging & download** | Start / stop multi-sensor flash logging with an elapsed clock — the board keeps recording while disconnected — then reconnect and download with progress, per-sensor typed decode, and persistence. Pending sessions survive process death (`recoverLoggers` rebuilds the chunk registry) |
+| **Live stream** | Multi-sensor picker in three collapsible groups — Motion (accelerometer, gyroscope, magnetometer with ODR/range chips), Fusion (all seven sensor-fusion outputs), and Environmental (polled temperature / humidity / pressure with a 1 s–5 min interval picker, plus streamed barometer pressure, altitude, and ambient light) — each group opening only when one of its sensors is selected, with a 100 Hz BLE bandwidth advisor. Canvas line charts, live readouts, true effective-Hz, a tared 3D orientation cube on the quaternion output, and a fusion calibration badge |
+| **Logging & download** | Start / stop multi-sensor flash logging with an elapsed clock — the board keeps recording while disconnected — then reconnect and download with live progress (entry count and percent), per-sensor typed decode, and persistence, all shown above the sensor picker. The screen reconciles with the board on entry: a session the app didn't start (an earlier run, another app) is surfaced as "Logging" with a Stop action that keeps the recorded entries, and stale local records for cleared data are dropped. Pending sessions survive process death (`recoverLoggers` rebuilds the chunk registry) |
 | **Group logging** | Record the same sensors across a fleet of boards under one shared group id, with a red recording heartbeat that re-arms itself via on-board disconnect events, then stop + download the whole batch with per-board progress. Foreign logs (another app's session) are detected on connect and offered for download via anonymous signals |
 | **Session history** | Browse saved sessions grouped by board, re-plot them, replay quaternion sessions in 3D with a scrub timeline (1×/2×/4×), swipe-to-delete, and export any session to CSV through the system share sheet |
 | **Controls** | LED color / pattern presets with play / stop, haptic motor strength and pulse-width sliders, buzzer pulse |
-| **Settings** | Validated advertising rename, advertising interval / timeout, TX power, a Maintenance section (reset LED, clear macros, clear events + timers, restart-without-erase), and a confirm-dialog factory reset |
+| **Settings** | Validated advertising rename, firmware update, a Logging section (entries in flash, every logger armed on the board with its module / register / byte range, refresh, and a confirmed Clear Logs & Loggers), advertising interval / timeout, TX power, a Maintenance section (reset LED, clear macros, clear events + timers, restart-without-erase), and a confirm-dialog factory reset |
 | **Firmware** | Catalog update check plus a Nordic-DFU update flow with state / progress UI |
 
 ### Running it
@@ -1679,9 +1679,9 @@ Module IDs (`com.mbientlab.metawear.protocol.Module`):
 ./gradlew :metawear-protocol:test --tests '*TimerTest*'
 ```
 
-Four JVM test source sets ship with the repo — **1274 tests** in total:
+Four JVM test source sets ship with the repo — **1275 tests** in total:
 
-- **`:metawear-protocol`** — 1042 tests across 43 files. The full SDK surface, run against `MockBleTransport`, including reference byte vectors from the MetaWear C++ SDK's Python test suite. No hardware required.
+- **`:metawear-protocol`** — 1043 tests across 43 files. The full SDK surface, run against `MockBleTransport`, including reference byte vectors from the MetaWear C++ SDK's Python test suite. No hardware required.
 - **`:metawear-persistence`** — 46 tests (`PersistableConformanceTest`, `PersistenceStoreTest`, `SessionExportTest`, `AttributionStampTest`) against an in-memory fake DAO — no hardware, no on-disk side effects.
 - **`:metawear-firmware`** — 66 tests (`BootloaderInterlockTest`, `DFUProgressTest`, `FirmwareBuildTest`, `FirmwareCatalogTest`, `FirmwareExceptionTest`, `FirmwareServerTest`, `MetaWearVersionTest`).
 - **`:app`** — 120 tests: ring buffer / decimation / effective-Hz math, quaternion cube and tare frame, CSV exporters, session grouping, foreign-log decisions, group-capture coordination, and end-to-end walks through the real `MetaWearDevice` against the test-only `DemoBleTransport`.
