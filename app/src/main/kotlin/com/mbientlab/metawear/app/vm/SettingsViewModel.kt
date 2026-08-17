@@ -4,8 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mbientlab.metawear.MetaWearDevice
 import com.mbientlab.metawear.app.AppContainer
+import com.mbientlab.metawear.clearLog
+import com.mbientlab.metawear.model.ActiveLogger
+import com.mbientlab.metawear.queryActiveLoggers
+import com.mbientlab.metawear.sensor.LogLength
 import com.mbientlab.metawear.sensor.Settings
 import com.mbientlab.metawear.sensor.eraseAllMacros
+import com.mbientlab.metawear.stopOnBoardLogging
 import com.mbientlab.metawear.sensor.removeAllEvents
 import com.mbientlab.metawear.sensor.removeAllTimers
 import com.mbientlab.metawear.sensor.stopLed
@@ -31,6 +36,71 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     private val _didFactoryReset = MutableStateFlow(false)
     val didFactoryReset: StateFlow<Boolean> = _didFactoryReset.asStateFlow()
+
+    // ---- On-board logging state ----
+
+    /** What the board's logging module currently holds. */
+    data class LoggingStatus(
+        /** Entries in flash as reported by LOG_LENGTH (page-granular on MMS). */
+        val entryCount: Long,
+        /** Loggers armed on the board — from every app that ever configured one. */
+        val activeLoggers: List<ActiveLogger>,
+    )
+
+    private val _loggingStatus = MutableStateFlow<LoggingStatus?>(null)
+    /** `null` until the first refresh completes (or the device is absent). */
+    val loggingStatus: StateFlow<LoggingStatus?> = _loggingStatus.asStateFlow()
+
+    private val _loggingBusy = MutableStateFlow(false)
+    /** True while a refresh or clear is in flight. */
+    val loggingBusy: StateFlow<Boolean> = _loggingBusy.asStateFlow()
+
+    init {
+        refreshLoggingStatus()
+    }
+
+    /** Re-read the entry count and enumerate the loggers armed on the board. */
+    fun refreshLoggingStatus() {
+        val device = device ?: return
+        viewModelScope.launch {
+            _loggingBusy.value = true
+            runCatching {
+                val count = device.read(LogLength()).value
+                val loggers = device.queryActiveLoggers()
+                LoggingStatus(entryCount = count, activeLoggers = loggers)
+            }
+                .onSuccess { _loggingStatus.value = it }
+                .onFailure { _lastError.value = "Couldn't read logging state: ${it.message}" }
+            _loggingBusy.value = false
+        }
+    }
+
+    /**
+     * Stop any on-board logging, drop every flash entry, and remove every
+     * armed logger — a clean slate for the logging module. Destructive:
+     * un-downloaded data is gone.
+     *
+     * The status is refreshed afterward but LOG_LENGTH is set straight to
+     * zero locally rather than trusted from the board: the MMS reports a
+     * housekeeping sentinel (~1) for up to a minute after a clear.
+     */
+    fun clearLogsAndLoggers() {
+        val device = device ?: return
+        viewModelScope.launch {
+            _loggingBusy.value = true
+            runCatching {
+                device.stopOnBoardLogging()
+                device.clearLog()
+            }
+                .onSuccess {
+                    _statusMessage.value = "Logs and loggers cleared"
+                    val loggers = runCatching { device.queryActiveLoggers() }.getOrDefault(emptyList())
+                    _loggingStatus.value = LoggingStatus(entryCount = 0, activeLoggers = loggers)
+                }
+                .onFailure { _lastError.value = "Clear failed: ${it.message}" }
+            _loggingBusy.value = false
+        }
+    }
 
     fun isNameValid(name: String): Boolean = Settings.isNameValid(name)
 

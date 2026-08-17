@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.FlashlightOff
 import androidx.compose.material.icons.filled.Memory
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.mbientlab.metawear.app.ui.appViewModel
 import com.mbientlab.metawear.app.ui.components.ActionRow
+import com.mbientlab.metawear.app.ui.components.LabeledValue
 import com.mbientlab.metawear.app.ui.components.AppScaffold
 import com.mbientlab.metawear.app.ui.components.BrandCard
 import com.mbientlab.metawear.app.ui.components.GroupCard
@@ -63,6 +65,8 @@ fun SettingsScreen(onFactoryReset: () -> Unit, onBack: () -> Unit) {
     val statusMessage by vm.statusMessage.collectAsState()
     val lastError by vm.lastError.collectAsState()
     val didFactoryReset by vm.didFactoryReset.collectAsState()
+    val loggingStatus by vm.loggingStatus.collectAsState()
+    val loggingBusy by vm.loggingBusy.collectAsState()
 
     val firmwareVm = appViewModel(::FirmwareUpdateViewModel)
 
@@ -74,6 +78,7 @@ fun SettingsScreen(onFactoryReset: () -> Unit, onBack: () -> Unit) {
     var showClearMacrosDialog by remember { mutableStateOf(false) }
     var showClearEventsDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
+    var showClearLogsDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(didFactoryReset) {
         // Board rebooted; return to the device hub, which offers Reconnect.
@@ -128,6 +133,64 @@ fun SettingsScreen(onFactoryReset: () -> Unit, onBack: () -> Unit) {
             item { SectionHeader("Firmware") }
             item { FirmwareSection(firmwareVm) }
 
+            item { SectionHeader("Logging") }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    GroupCard {
+                        val status = loggingStatus
+                        LabeledValue(
+                            "Entries in flash",
+                            when {
+                                status == null && loggingBusy -> "Reading…"
+                                status == null -> "—"
+                                else -> "%,d".format(status.entryCount)
+                            },
+                        )
+                        HorizontalDivider()
+                        LabeledValue(
+                            "Active loggers",
+                            when {
+                                status == null -> "—"
+                                status.activeLoggers.isEmpty() -> "None"
+                                else -> status.activeLoggers.size.toString()
+                            },
+                        )
+                        // One line per armed logger so a stale configuration
+                        // from an earlier session (or another app) is visible.
+                        status?.activeLoggers?.forEach { logger ->
+                            HorizontalDivider()
+                            LabeledValue(
+                                "  Logger ${logger.loggerID}",
+                                "${logger.module.name.lowercase()} · reg 0x%02X · offset %d, %d B".format(
+                                    logger.register, logger.chunkOffset, logger.chunkLength,
+                                ),
+                                monospace = true,
+                            )
+                        }
+                        HorizontalDivider()
+                        ActionRow(
+                            "Refresh",
+                            Icons.Filled.Refresh,
+                            enabled = !loggingBusy,
+                            onClick = { vm.refreshLoggingStatus() },
+                        )
+                        HorizontalDivider()
+                        ActionRow(
+                            "Clear Logs & Loggers",
+                            Icons.Filled.DeleteSweep,
+                            tint = Palette.danger,
+                            enabled = !loggingBusy,
+                            onClick = { showClearLogsDialog = true },
+                        )
+                    }
+                    SectionFooter(
+                        "Loggers stay armed on the board across disconnects and app restarts, from every app that " +
+                            "ever configured one. The entry count is reported in flash pages, so it can read 0 for the " +
+                            "first seconds of a session. Clear removes every logger and drops all entries — " +
+                            "download first if you want the data.",
+                    )
+                }
+            }
             item { SectionHeader("Advertising") }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -259,6 +322,21 @@ fun SettingsScreen(onFactoryReset: () -> Unit, onBack: () -> Unit) {
                 vm.clearEvents()
             },
             onDismiss = { showClearEventsDialog = false },
+        )
+    }
+
+    if (showClearLogsDialog) {
+        ConfirmDialog(
+            title = "Clear all logs and loggers?",
+            text = "Stops any on-board logging, drops every entry in flash, and removes every armed logger — " +
+                "from ALL apps. Any session that hasn't been downloaded is lost.",
+            confirmLabel = "Clear Logs & Loggers",
+            destructive = true,
+            onConfirm = {
+                showClearLogsDialog = false
+                vm.clearLogsAndLoggers()
+            },
+            onDismiss = { showClearLogsDialog = false },
         )
     }
 
