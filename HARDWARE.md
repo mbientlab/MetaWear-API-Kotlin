@@ -18,15 +18,18 @@ and phone. This guide is the exact procedure.
 4. Verify the connection:
 
 ```bash
-/Users/kasso/Library/Android/sdk/platform-tools/adb devices
+adb devices
 # expect one line like: RF8N... device   (not "unauthorized")
+# (adb lives in <Android SDK>/platform-tools — add it to PATH, or use the
+#  Terminal inside Android Studio, which already has it)
 ```
 
 All gradle commands below are run from the repo root with:
 
 ```bash
-export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-cd /Users/kasso/Documents/Mbientlab/MetaWear-API-Kotlin
+# JAVA_HOME must point at a JDK 21 — Android Studio's bundled JBR works:
+#   macOS: export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+cd <path-to>/MetaWear-API-Kotlin
 ```
 
 ## 1. BLE smoke + hardware suites (43 tests, needs the board)

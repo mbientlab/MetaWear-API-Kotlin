@@ -1,0 +1,39 @@
+name: CI
+on: [pull_request, push]
+permissions:
+  contents: read
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      # The whole JVM gate: protocol + persistence + firmware + app unit
+      # tests (1,274 as of first publish), plus every AAR, the APK, and the
+      # instrumented-test APKs (compile-verified — the hardware suites
+      # themselves need a phone and a board; see HARDWARE.md).
+      - run: >
+          ./gradlew
+          :metawear-protocol:test
+          :metawear-persistence:testDebugUnitTest
+          :metawear-firmware:testDebugUnitTest
+          :app:testDebugUnitTest
+          :metawear-core:assembleDebug
+          :metawear-persistence:assembleDebug
+          :metawear-firmware:assembleDebug
+          :app:assembleDebug
+          :metawear-core:assembleDebugAndroidTest
+          :metawear-persistence:assembleDebugAndroidTest
+          --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+          retention-days: 7
