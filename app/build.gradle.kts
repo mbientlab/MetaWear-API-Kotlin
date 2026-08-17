@@ -8,8 +8,7 @@ plugins {
 
 // Jetpack Compose MetaWear app: scanning, live streaming with ring-buffer
 // decimation, on-device logging + download, session history with CSV export,
-// LED/haptic controls, device settings, firmware updates, and a hardware-free
-// demo mode.
+// LED/haptic controls, device settings, and firmware updates.
 android {
     namespace = "com.mbientlab.metawear.app"
     compileSdk = 36
@@ -52,13 +51,15 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.core.ktx)
 
     // JVM unit tests: RingBuffer, Channel decimation, CSV export, filenames,
-    // bandwidth advisor, demo-transport round trips, group-capture walks.
+    // bandwidth advisor, group-capture walks, and end-to-end walks through the
+    // real MetaWearDevice against DemoBleTransport (a test-only emulator).
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)

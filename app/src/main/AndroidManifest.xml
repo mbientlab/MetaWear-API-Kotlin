@@ -19,10 +19,14 @@
         android:name="android.permission.ACCESS_FINE_LOCATION"
         android:maxSdkVersion="30" />
     <!-- Nordic DFU service runs as a foreground service during flashing. -->
+    <!-- Firmware updates fetch the release catalog and firmware archives from
+         MbientLab's release server. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- BLE is preferred but not required: demo mode works without radios. -->
+    <!-- BLE is required to talk to boards, but declared optional so the app
+         still installs on radio-less devices (session history stays usable). -->
     <uses-feature
         android:name="android.hardware.bluetooth_le"
         android:required="false" />
@@ -30,6 +34,8 @@
     <application
         android:name=".MetaWearApplication"
         android:label="MetaWear"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="tiramisu">

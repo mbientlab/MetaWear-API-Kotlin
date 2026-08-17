@@ -22,8 +22,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * A protocol-level MetaWear emulator for demos, emulator runs, and screenshots
- * — no hardware, no Bluetooth.
+ * A protocol-level MetaWear emulator used as a JVM test fixture — no hardware,
+ * no Bluetooth. Lives in the test source set only; the shipping app never
+ * constructs it.
  *
  * Behaves like a connected MetaMotion S on firmware 1.7.3: it answers module
  * discovery, Device Information reads, battery/MAC/log reads, streams
@@ -32,13 +33,13 @@ import kotlinx.coroutines.launch
  * emulates the logging round trip (trigger allocation, LOG_LENGTH growth
  * while "recording", paged readout with progress).
  *
- * Pure Kotlin (no Android imports) so the whole demo pipeline is exercised by
- * JVM unit tests through the real [com.mbientlab.metawear.MetaWearDevice].
+ * Pure Kotlin (no Android imports) so the whole app device stack is exercised
+ * by JVM unit tests through the real [com.mbientlab.metawear.MetaWearDevice].
  *
  * Each instance wears an [Identity] — [Identity.board] mints up to 16
  * distinguishable boards (identifier, serial, MAC, waveform phase) so
- * multi-board flows are exercisable with a simulated fleet; the default is
- * the legacy single demo board.
+ * multi-board flows are testable with a simulated fleet; the default is the
+ * legacy single demo board.
  */
 class DemoBleTransport(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
@@ -47,8 +48,8 @@ class DemoBleTransport(
 
     companion object {
         /**
-         * Stable identifier so app-side code can recognise the demo device.
-         * Equal to `Identity.board(0).identifier` — the legacy single demo board.
+         * Stable identifier of the default board — equal to
+         * `Identity.board(0).identifier`, the legacy single demo board.
          */
         const val DEVICE_IDENTIFIER: String = "DE:30:DE:30:DE:30"
 
@@ -513,7 +514,7 @@ class DemoBleTransport(
         // any 2-chunk cartesian logger pair (accel/gyro/mag) plus every
         // single-chunk environmental logger — temperature (Int16 °C × 8),
         // humidity (UInt32 % × 1024), pressure (UInt32 Pa × 256) — so both
-        // streamed and polled logging round-trip in demo mode.
+        // streamed and polled logging round-trip through the emulator.
         class EnvProducer(val loggerId: Int, val rawData: (Double) -> Long)
 
         val cartesianPair: List<Int>

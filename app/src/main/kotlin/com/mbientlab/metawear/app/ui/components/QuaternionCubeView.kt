@@ -6,11 +6,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mbientlab.metawear.app.core.QuaternionCube
-import com.mbientlab.metawear.app.ui.theme.GlassAccent
-import com.mbientlab.metawear.app.ui.theme.GlassSurfaceHigh
+import com.mbientlab.metawear.app.ui.theme.Palette
 
 /**
  * Dependency-free 3D orientation cube: rotates a wireframe cube by the live
@@ -27,6 +28,7 @@ fun QuaternionCubeView(
     modifier: Modifier = Modifier,
     height: Dp = 180.dp,
 ) {
+    val frameColor = MaterialTheme.colorScheme.outlineVariant
     Canvas(
         modifier = modifier
             .fillMaxWidth()
@@ -46,7 +48,7 @@ fun QuaternionCubeView(
             val depth = ((vertices[a].z + vertices[b].z) / 2f / 1.75f).coerceIn(-1f, 1f)
             val t = (depth + 1f) / 2f
             drawLine(
-                color = GlassAccent.copy(alpha = 0.25f + 0.75f * t),
+                color = Palette.accent.copy(alpha = 0.25f + 0.75f * t),
                 start = projected[a],
                 end = projected[b],
                 strokeWidth = (1f + 2f * t).dp.toPx(),
@@ -55,9 +57,9 @@ fun QuaternionCubeView(
         // Vertex dots for the front-most corners.
         vertices.forEachIndexed { index, v ->
             if (v.z > 0f) {
-                drawCircle(GlassAccent, radius = 3.dp.toPx(), center = projected[index])
+                drawCircle(Palette.accent, radius = 3.dp.toPx(), center = projected[index])
             }
         }
-        drawRect(GlassSurfaceHigh, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+        drawRect(frameColor, style = Stroke(1.dp.toPx()))
     }
 }

@@ -820,6 +820,22 @@ suspend fun MetaWearDevice.stopOnBoardLogging() {
 }
 
 /**
+ * Stop on-board logging AND remove every armed logger, but keep the entries
+ * already in flash so they can still be downloaded (as a foreign log via
+ * anonymous signals, or after `recoverLoggers`).
+ *
+ * This is the "take the board out of a logging state you didn't start"
+ * action: [stopOnBoardLogging] alone leaves the loggers armed (the board
+ * still *reports* itself as logging), while [clearLog] also drops the data.
+ * The local logger registry is cleared to match the board.
+ */
+suspend fun MetaWearDevice.stopAndRemoveLoggers() {
+    writeRaw(Packet.command(Module.LOGGING, LOG_ENABLE, 0x00))         // stop logging
+    writeRaw(Packet.command(Module.LOGGING, LOG_REMOVE_ALL_TRIGGERS))  // remove all loggers, keep entries
+    loggerRegistry.clear()
+}
+
+/**
  * Flush the active logging page to flash so in-flight samples become readable.
  *
  * Only valid on MMS boards — firmware ignores this command on MMRL, so this

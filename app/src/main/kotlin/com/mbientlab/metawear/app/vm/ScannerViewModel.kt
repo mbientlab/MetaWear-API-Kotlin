@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mbientlab.metawear.app.AppContainer
 import com.mbientlab.metawear.app.core.DeviceFreshness
-import com.mbientlab.metawear.app.demo.DemoBleTransport
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -16,9 +15,8 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
 /**
- * Scan-screen state: nearby devices merged from the SDK scanner's StateFlows,
- * remembered devices from the prefs store, plus the demo device when demo
- * mode is on.
+ * Scan-screen state: nearby devices merged from the SDK scanner's StateFlows
+ * plus remembered devices from the prefs store.
  */
 class ScannerViewModel(private val container: AppContainer) : ViewModel() {
 
@@ -27,13 +25,11 @@ class ScannerViewModel(private val container: AppContainer) : ViewModel() {
         val identifier: String,
         val name: String,
         val rssi: Int?,
-        val isDemo: Boolean = false,
     )
 
     private val scanner = container.scanner
 
     val isScanning: StateFlow<Boolean> = scanner.isScanning
-    val demoModeEnabled: StateFlow<Boolean> = container.demoModeEnabled
     val remembered = container.remembered.devices
 
     private val _lastError = MutableStateFlow<String?>(null)
@@ -67,16 +63,15 @@ class ScannerViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    /** Nearby devices: discovered + fresh, demo device prepended when enabled. */
+    /** Nearby devices: discovered and still fresh, sorted by name. */
     val nearbyDevices: StateFlow<List<NearbyDevice>> = combine(
         scanner.discoveredDevices,
         scanner.advertisedNames,
         scanner.advertisementRssi,
-        container.demoModeEnabled,
         lastSeen,
-    ) { discovered, names, rssi, demo, seen ->
+    ) { discovered, names, rssi, seen ->
         val now = Clock.System.now()
-        val rows = discovered.keys
+        discovered.keys
             .filter { DeviceFreshness.isFresh(seen[it], now) || !isScanningNow() }
             .map { id ->
                 NearbyDevice(
@@ -86,11 +81,6 @@ class ScannerViewModel(private val container: AppContainer) : ViewModel() {
                 )
             }
             .sortedBy { it.name }
-        if (demo) {
-            listOf(NearbyDevice(DemoBleTransport.DEVICE_IDENTIFIER, DemoBleTransport.DEVICE_NAME, rssi = -52, isDemo = true)) + rows
-        } else {
-            rows
-        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private fun isScanningNow(): Boolean = scanner.isScanning.value
@@ -103,7 +93,7 @@ class ScannerViewModel(private val container: AppContainer) : ViewModel() {
 
     fun startScan() {
         if (!container.isBluetoothAvailable()) {
-            _lastError.value = "Bluetooth is unavailable — try demo mode"
+            _lastError.value = "Bluetooth is off — turn it on to scan"
             return
         }
         runCatching { scanner.startScan() }
@@ -112,10 +102,6 @@ class ScannerViewModel(private val container: AppContainer) : ViewModel() {
 
     fun stopScan() {
         runCatching { scanner.stopScan() }
-    }
-
-    fun setDemoMode(enabled: Boolean) {
-        container.demoModeEnabled.value = enabled
     }
 
     /** Mark [identifier] active and hand off to the device detail flow. */

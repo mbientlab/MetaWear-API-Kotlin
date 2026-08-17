@@ -38,8 +38,8 @@ import org.junit.jupiter.api.Test
 
 /**
  * End-to-end exercises of the demo emulator through the real
- * [MetaWearDevice] protocol stack — the same path the app uses in demo mode,
- * with no Android or Bluetooth anywhere.
+ * [MetaWearDevice] protocol stack — the same path the app takes against a
+ * physical board, with no Android or Bluetooth anywhere.
  */
 class DemoBleTransportTest {
 

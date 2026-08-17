@@ -1,96 +1,121 @@
 package com.mbientlab.metawear.app.ui.sessions
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.mbientlab.metawear.app.core.AnyChartSample
-import com.mbientlab.metawear.app.core.ReplayTimeline
-import com.mbientlab.metawear.app.core.SessionAxisStyle
-import com.mbientlab.metawear.app.export.CsvShare
-import com.mbientlab.metawear.app.export.ExportFilename
 import com.mbientlab.metawear.app.ui.appViewModel
-import com.mbientlab.metawear.app.ui.components.ErrorBanner
-import com.mbientlab.metawear.app.ui.components.GlassCard
-import com.mbientlab.metawear.app.ui.components.LabeledValue
-import com.mbientlab.metawear.app.ui.components.LineChart
+import com.mbientlab.metawear.app.ui.components.AppScaffold
+import com.mbientlab.metawear.app.ui.components.BrandCard
+import com.mbientlab.metawear.app.ui.components.BrandCardShape
+import com.mbientlab.metawear.app.ui.components.Notice
 import com.mbientlab.metawear.app.ui.components.SectionHeader
-import com.mbientlab.metawear.app.ui.theme.ChannelColors
-import com.mbientlab.metawear.app.ui.theme.FourChannelColors
-import com.mbientlab.metawear.app.ui.theme.GlassError
-import com.mbientlab.metawear.app.ui.theme.GlassTextDim
+import com.mbientlab.metawear.app.ui.components.cardListItemColors
+import com.mbientlab.metawear.app.ui.components.formatDateTime
+import com.mbientlab.metawear.app.ui.components.sensorIconForLabel
+import com.mbientlab.metawear.app.ui.theme.Palette
 import com.mbientlab.metawear.app.vm.SessionHistoryViewModel
 import com.mbientlab.metawear.persistence.SessionSnapshot
-import kotlinx.coroutines.launch
+import java.text.NumberFormat
 
 /**
- * Session history grouped by board, with swipe-to-delete, chart previews with
- * per-sample-type styling, quaternion 3D replay, and CSV export.
+ * Session history grouped by board (sections keyed on board identity), one
+ * row per saved session with swipe-to-delete; tapping a row opens the
+ * detail screen with the chart preview, quaternion replay, and CSV export.
  */
 @Composable
-fun SessionsScreen() {
+fun SessionsScreen(onBack: () -> Unit, onOpenSession: (String) -> Unit) {
     val vm = appViewModel(::SessionHistoryViewModel)
     val sections by vm.sections.collectAsState()
     val lastError by vm.lastError.collectAsState()
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        item { Text("Sessions", style = MaterialTheme.typography.headlineSmall) }
-        item { ErrorBanner(lastError) { vm.clearError() } }
-
+    AppScaffold(
+        title = "Session History",
+        onBack = onBack,
+        notice = lastError?.let { Notice(it) { vm.clearError() } },
+    ) { padding ->
         if (sections.isEmpty()) {
-            item {
-                GlassCard {
-                    Text(
-                        "No saved sessions yet. Stream (Stop & Save) or download a log to create one.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = GlassTextDim,
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(32.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(
+                    Icons.Outlined.Schedule,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(48.dp),
+                )
+                Text("No sessions yet", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Downloaded log sessions and stopped live streams will appear here.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            return@AppScaffold
+        }
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = padding.calculateTopPadding() + 4.dp,
+                bottom = padding.calculateBottomPadding() + 24.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            sections.forEach { section ->
+                item(key = "header-${section.id}") { SectionHeader(section.title) }
+                items(section.sessions, key = { it.id }) { session ->
+                    DismissableSessionRow(
+                        session = session,
+                        onOpen = { onOpenSession(session.id) },
+                        onDelete = { vm.deleteSession(session.id) },
                     )
                 }
-            }
-        }
-
-        sections.forEach { section ->
-            item(key = "header-${section.id}") { SectionHeader(section.title) }
-            items(section.sessions, key = { it.id }) { session ->
-                DismissableSessionCard(session, vm)
             }
         }
     }
 }
 
 @Composable
-private fun DismissableSessionCard(session: SessionSnapshot, vm: SessionHistoryViewModel) {
+private fun DismissableSessionRow(session: SessionSnapshot, onOpen: () -> Unit, onDelete: () -> Unit) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
-                vm.deleteSession(session.id)
+                onDelete()
                 true
             } else {
                 false
@@ -104,86 +129,39 @@ private fun DismissableSessionCard(session: SessionSnapshot, vm: SessionHistoryV
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(GlassError.copy(alpha = 0.4f)),
+                    .background(Palette.danger, BrandCardShape),
                 contentAlignment = Alignment.CenterEnd,
             ) {
-                Text("Delete", modifier = Modifier.padding(end = 24.dp))
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.onError,
+                    modifier = Modifier.padding(end = 24.dp),
+                )
             }
         },
     ) {
-        SessionCard(session, vm)
-    }
-}
-
-@Composable
-private fun SessionCard(session: SessionSnapshot, vm: SessionHistoryViewModel) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    var preview by remember { mutableStateOf<List<AnyChartSample>?>(null) }
-    var replay by remember { mutableStateOf<Pair<List<AnyChartSample>, ReplayTimeline>?>(null) }
-
-    val isQuaternion = session.sensorKind == "quaternion"
-    val style = SessionAxisStyle.forSession(
-        sensorKind = session.sensorKind,
-        label = session.label,
-        channelCount = SessionAxisStyle.channelCountFor(session.sensorKind),
-    )
-
-    GlassCard {
-        Text(session.label ?: session.sensorKind, style = MaterialTheme.typography.titleSmall)
-        session.deviceName?.let { LabeledValue("Board", it) }
-        LabeledValue("Samples", session.sampleCount.toString())
-        LabeledValue("Start", session.startDate.toString())
-        LabeledValue("Device", "${session.deviceModel} · fw ${session.deviceFirmware}")
-        session.groupID?.let { LabeledValue("Group", it.take(8)) }
-
-        replay?.let { (samples, timeline) ->
-            SessionReplayView(samples = samples, timeline = timeline)
-        }
-
-        preview?.let { samples ->
-            LineChart(
-                samples = samples,
-                channelCount = style.chartChannels,
-                colors = if (style.chartChannels == 4) FourChannelColors else ChannelColors,
-                yRange = style.yRange,
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            if (isQuaternion && session.sampleCount >= 2 && replay == null) {
-                TextButton(onClick = {
-                    scope.launch {
-                        vm.loadReplay(session)?.let { (samples, ticks) ->
-                            replay = samples to ReplayTimeline(ticks)
-                        }
+        BrandCard(contentPadding = PaddingValues(0.dp)) {
+            ListItem(
+                headlineContent = { Text(session.label ?: session.sensorKind.replaceFirstChar { it.uppercase() }) },
+                supportingContent = {
+                    Column {
+                        Text(session.startDate.formatDateTime())
+                        Text(
+                            "${NumberFormat.getIntegerInstance().format(session.sampleCount)} samples",
+                            fontFamily = FontFamily.Monospace,
+                        )
                     }
-                }) { Text("Replay") }
-            }
-            if (preview == null) {
-                TextButton(onClick = {
-                    scope.launch { preview = vm.loadPreview(session) }
-                }) { Text("Preview") }
-            }
-            TextButton(onClick = {
-                scope.launch {
-                    val csv = vm.exportCsv(session) ?: return@launch
-                    val filename = ExportFilename.make(
-                        // Capture-time name attributes the file; un-renamed
-                        // boards get their serial appended instead.
-                        deviceName = session.deviceName ?: "MetaWear-${session.deviceSerial}",
-                        sensorTag = session.sensorKind,
-                        timestamp = session.startDate,
-                        discriminator = session.id.take(4),
-                    )
-                    CsvShare.share(context, filename, csv)
-                }
-            }) { Text("Export CSV") }
-            TextButton(onClick = { vm.deleteSession(session.id) }) { Text("Delete") }
+                },
+                leadingContent = {
+                    Icon(sensorIconForLabel(session.label), contentDescription = null, tint = Palette.accent)
+                },
+                trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
+                colors = cardListItemColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpen),
+            )
         }
     }
 }
