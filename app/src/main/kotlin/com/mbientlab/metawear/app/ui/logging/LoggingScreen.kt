@@ -115,7 +115,7 @@ fun LoggingScreen(onBack: () -> Unit) {
                 ) {
                     Icon(Icons.Filled.Stop, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Stop board")
+                    Text("Stop")
                 }
                 pending.isNotEmpty() && downloadPhase is DownloadViewModel.Phase.Idle -> Button(
                     onClick = { downloadVm.downloadAll(pending) },
@@ -149,18 +149,6 @@ fun LoggingScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
-                // While recording, mirror the running loggers into the locked
-                // picker so the user sees what is actually being captured.
-                SensorConfigSection(
-                    modules = modules,
-                    selections = if (isRunning && running.isNotEmpty()) running.map { it.selection } else selections,
-                    onSelectionsChange = { selections = it },
-                    loggingMode = true, // hides stream-only altitude
-                    locked = isRunning,
-                )
-            }
-
-            item {
                 val (icon, tint, text) = when (val p = phase) {
                     LogSessionViewModel.Phase.Idle -> Triple(
                         Icons.Outlined.Circle,
@@ -180,7 +168,7 @@ fun LoggingScreen(onBack: () -> Unit) {
                     is LogSessionViewModel.Phase.BoardLogging -> Triple(
                         Icons.Filled.FiberManualRecord,
                         Palette.warning,
-                        "Board is logging on its own · ${p.loggerCount} logger" +
+                        "Logging · ${p.loggerCount} logger" +
                             (if (p.loggerCount == 1) "" else "s") + " · ${"%,d".format(p.entryCount)} entries",
                     )
                 }
@@ -193,32 +181,13 @@ fun LoggingScreen(onBack: () -> Unit) {
                     }
                     SectionFooter(
                         if (phase is LogSessionViewModel.Phase.BoardLogging) {
-                            "This app didn't start this session — it was armed by an earlier run, another app, " +
-                                "or a session whose record was lost. Stop board keeps the recorded entries; " +
-                                "recover them from Settings, or clear them there."
+                            "The board is currently logging. This session was started earlier — by a previous " +
+                                "run of the app or by another app — so its sensors aren't listed here. Stop ends " +
+                                "it and keeps what was recorded; download or clear it from Settings."
                         } else {
                             "The board keeps logging even if you close the app."
                         },
                     )
-                }
-            }
-
-            if (isRunning && running.isNotEmpty()) {
-                item { SectionHeader("Active Loggers") }
-                item {
-                    GroupCard {
-                        running.forEachIndexed { index, record ->
-                            if (index > 0) HorizontalDivider()
-                            ListItem(
-                                headlineContent = { Text(record.selection.displayLabel) },
-                                supportingContent = { Text(record.startDate.formatTime()) },
-                                leadingContent = {
-                                    Icon(record.selection.key.icon, contentDescription = null, tint = Palette.accent)
-                                },
-                                colors = cardListItemColors(),
-                            )
-                        }
-                    }
                 }
             }
 
@@ -243,6 +212,38 @@ fun LoggingScreen(onBack: () -> Unit) {
                 }
                 item { DownloadStateCard(downloadPhase, onDismiss = { downloadVm.reset() }) }
             }
+
+            item {
+                // While recording, mirror the running loggers into the locked
+                // picker so the user sees what is actually being captured.
+                SensorConfigSection(
+                    modules = modules,
+                    selections = if (isRunning && running.isNotEmpty()) running.map { it.selection } else selections,
+                    onSelectionsChange = { selections = it },
+                    loggingMode = true, // hides stream-only altitude
+                    locked = isRunning,
+                )
+            }
+
+            if (isRunning && running.isNotEmpty()) {
+                item { SectionHeader("Active Loggers") }
+                item {
+                    GroupCard {
+                        running.forEachIndexed { index, record ->
+                            if (index > 0) HorizontalDivider()
+                            ListItem(
+                                headlineContent = { Text(record.selection.displayLabel) },
+                                supportingContent = { Text(record.startDate.formatTime()) },
+                                leadingContent = {
+                                    Icon(record.selection.key.icon, contentDescription = null, tint = Palette.accent)
+                                },
+                                colors = cardListItemColors(),
+                            )
+                        }
+                    }
+                }
+            }
+
         }
     }
 }
