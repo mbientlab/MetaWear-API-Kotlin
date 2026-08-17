@@ -108,6 +108,15 @@ fun LoggingScreen(onBack: () -> Unit) {
                     Spacer(Modifier.width(4.dp))
                     Text("Stop")
                 }
+                phase is LogSessionViewModel.Phase.BoardLogging -> OutlinedButton(
+                    onClick = { vm.stopBoardLogging() },
+                    enabled = !isBusy,
+                    modifier = Modifier.padding(end = 8.dp),
+                ) {
+                    Icon(Icons.Filled.Stop, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Stop board")
+                }
                 pending.isNotEmpty() && downloadPhase is DownloadViewModel.Phase.Idle -> Button(
                     onClick = { downloadVm.downloadAll(pending) },
                     modifier = Modifier.padding(end = 8.dp),
@@ -168,6 +177,12 @@ fun LoggingScreen(onBack: () -> Unit) {
                         Palette.success,
                         "Stopped · ${formatDuration(elapsed)} captured",
                     )
+                    is LogSessionViewModel.Phase.BoardLogging -> Triple(
+                        Icons.Filled.FiberManualRecord,
+                        Palette.warning,
+                        "Board is logging on its own · ${p.loggerCount} logger" +
+                            (if (p.loggerCount == 1) "" else "s") + " · ${"%,d".format(p.entryCount)} entries",
+                    )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     BrandCard {
@@ -176,7 +191,15 @@ fun LoggingScreen(onBack: () -> Unit) {
                             Text(text, style = MaterialTheme.typography.bodyLarge, fontFamily = FontFamily.Monospace)
                         }
                     }
-                    SectionFooter("The board keeps logging even if you close the app.")
+                    SectionFooter(
+                        if (phase is LogSessionViewModel.Phase.BoardLogging) {
+                            "This app didn't start this session — it was armed by an earlier run, another app, " +
+                                "or a session whose record was lost. Stop board keeps the recorded entries; " +
+                                "recover them from Settings, or clear them there."
+                        } else {
+                            "The board keeps logging even if you close the app."
+                        },
+                    )
                 }
             }
 

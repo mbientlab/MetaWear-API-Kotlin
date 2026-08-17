@@ -500,6 +500,22 @@ class LoggingTest {
         assertTrue(after.none { it.size >= 2 && (it[0].toInt() and 0xFF) == 0x0B && (it[1].toInt() and 0xFF) == 0x10 })
     }
 
+    // ---- stopAndRemoveLoggers ----
+
+    @Test
+    fun `stopAndRemoveLoggers disables logging and removes loggers but keeps entries`() = runTest {
+        val (device, transport) = connectedDevice()
+        transport.clearWrites()
+        device.stopAndRemoveLoggers()
+
+        val cmds = transport.writtenCommands
+        assertArrayEquals(bytes(0x0B, 0x01, 0x00), cmds[0]) // logging disable
+        assertArrayEquals(bytes(0x0B, 0x0A), cmds[1])       // remove all loggers
+        assertEquals(2, cmds.size)
+        // Never the drop-entries command — data must survive.
+        assertTrue(cmds.none { it.size >= 2 && (it[0].toInt() and 0xFF) == 0x0B && (it[1].toInt() and 0xFF) == 0x09 })
+    }
+
     // ---- clearLog ----
 
     @Test

@@ -9,7 +9,12 @@ import com.mbientlab.metawear.app.data.ConfiguredSensor
 import com.mbientlab.metawear.app.data.LogSessionRecord
 import com.mbientlab.metawear.app.data.startLoggingOn
 import com.mbientlab.metawear.app.data.stopLoggingOn
+import com.mbientlab.metawear.clearLog
 import com.mbientlab.metawear.flushLogPage
+import com.mbientlab.metawear.queryActiveLoggers
+import com.mbientlab.metawear.sensor.LogLength
+import com.mbientlab.metawear.sensor.LoggingEnabled
+import com.mbientlab.metawear.stopAndRemoveLoggers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +35,15 @@ class LogSessionViewModel(private val container: AppContainer) : ViewModel() {
         data object Idle : Phase()
         data class Running(val startedAt: Instant) : Phase()
         data object Stopped : Phase()
+
+        /**
+         * The board is logging (loggers armed) but this app holds no running
+         * session for it — a session from an earlier run of the app, another
+         * app, or one whose record was lost. The screen offers to stop the
+         * board's logging (data can then be recovered as a foreign log) rather
+         * than showing a misleading Start.
+         */
+        data class BoardLogging(val loggerCount: Int, val entryCount: Long) : Phase()
     }
 
     private val device: MetaWearDevice? = container.activeDevice()
@@ -69,6 +83,70 @@ class LogSessionViewModel(private val container: AppContainer) : ViewModel() {
                 val startedAt = running.minOf { it.startDate }
                 _phase.value = Phase.Running(startedAt)
                 startElapsedTicker(startedAt)
+            }
+            // Local records are only a memory of what this app did; the board
+            // is the truth. Reconcile the two so the screen never shows Start
+            // while the board is logging, or Download for data that's gone.
+            reconcileWithBoard()
+        }
+    }
+
+    /**
+     * Ask the board what it actually holds and reconcile the local records:
+     *
+     * - Loggers armed on the board but no local running session → the board
+     *   is logging on its own; surface [Phase.BoardLogging].
+     * - Local RUNNING/STOPPED records but the board holds no loggers and no
+     *   entries → the session was cleared out from under them (Settings →
+     *   Clear, factory reset, another app); drop them so no phantom Download.
+     *
+     * Best-effort: any read failure leaves the local view untouched.
+     */
+    fun reconcileWithBoard() {
+        val device = device ?: return
+        viewModelScope.launch {
+            val loggers = runCatching { device.queryActiveLoggers() }.getOrNull() ?: return@launch
+            val entries = runCatching { device.read(LogLength()).value }.getOrDefault(0L)
+            val local = container.logSessions.pendingFor(device.identifier)
+            val localRunning = local.any { it.status == LogSessionRecord.Status.RUNNING }
+
+            when {
+                loggers.isNotEmpty() && !localRunning -> {
+                    // Stale STOPPED records for a board that is now logging
+                    // again refer to data that no longer maps to them.
+                    if (local.isNotEmpty()) container.logSessions.remove(local.map { it.id })
+                    _phase.value = Phase.BoardLogging(loggers.size, entries)
+                }
+                loggers.isEmpty() && entries == 0L && local.isNotEmpty() -> {
+                    container.logSessions.remove(local.map { it.id })
+                    activeSensors.clear()
+                    elapsedJob?.cancel()
+                    _phase.value = Phase.Idle
+                }
+                loggers.isEmpty() && _phase.value is Phase.BoardLogging -> _phase.value = Phase.Idle
+            }
+        }
+    }
+
+    /**
+     * Stop logging that the board is doing on its own (see [Phase.BoardLogging]):
+     * flush the last page so whatever landed is readable, then disable the
+     * logging module and remove its loggers — entries are KEPT, so the data
+     * can still be recovered (Settings → Clear drops it if unwanted).
+     */
+    fun stopBoardLogging() {
+        val device = device ?: return
+        viewModelScope.launch {
+            _isBusy.value = true
+            try {
+                runCatching { device.flushLogPage() }
+                device.stopAndRemoveLoggers()
+                _phase.value = Phase.Idle
+                reconcileWithBoard()
+            } catch (e: Exception) {
+                _lastError.value = e.message ?: "Couldn't stop the board's logging"
+            } finally {
+                _isBusy.value = false
             }
         }
     }
