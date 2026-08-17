@@ -196,6 +196,14 @@ class MetaWearDevice(
             initialize()
             _state.value = DeviceState.Idle
         } catch (e: Throwable) {
+            // The link may already be up when initialization fails (a device
+            // information read or module-discovery read timing out). Tear it
+            // down so the state we report — Disconnected — is the truth: a
+            // leaked live link would make every later connect() fail with
+            // "already connected", and hold the board hostage.
+            router.clearDisconnectHandler()
+            router.stop()
+            runCatching { transport.disconnect() }
             _state.value = DeviceState.Disconnected
             throw e
         }

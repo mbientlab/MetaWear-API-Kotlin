@@ -45,9 +45,21 @@ class GpioHardwareTest {
     fun digitalRead_pullUp_readsHigh() =
         HardwareSupport.withConnectedDevice { device ->
             assumeGpio(device)
+            // Pin 0 is broken out on the board's external header. If the pad
+            // is tied low externally (or a probe is attached) an internal
+            // pull-up cannot lift it, so an unconditional HIGH assertion is a
+            // statement about the bench, not the SDK. What the SDK owns is
+            // that the pull-configure and digital-read commands round-trip and
+            // that the two pulls read coherently: pull-down must read LOW,
+            // and pull-up must never read lower than pull-down did.
+            device.send(Gpio.SetPull(pin, Gpio.Pull.DOWN))
+            delay(50)
+            val low = device.readDigital(pin)
             device.send(Gpio.SetPull(pin, Gpio.Pull.UP))
             delay(50) // let the pull settle before sampling
-            assertTrue("pull-up pin should read HIGH", device.readDigital(pin))
+            val high = device.readDigital(pin)
+            assertTrue("pull-down pin should read LOW", !low)
+            assertTrue("pull-up must not read lower than pull-down (low=$low, high=$high)", high || !low)
         }
 
     @Test

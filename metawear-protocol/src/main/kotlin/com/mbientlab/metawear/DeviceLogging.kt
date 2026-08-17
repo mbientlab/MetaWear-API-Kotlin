@@ -208,13 +208,19 @@ suspend fun <S> MetaWearDevice.startLogging(loggable: Loggable<S>): Unit = opMut
         }
         loggerRegistry[loggable.loggerKey] = chunks
 
-        // Enable sensor output and start hardware
-        for (cmd in loggable.enableCommands) if (cmd.isNotEmpty()) writeRaw(cmd)
-        for (cmd in loggable.startCommands) if (cmd.isNotEmpty()) writeRaw(cmd)
-
-        // Enable circular buffer and start logging
+        // Arm the logging module BEFORE the sensor starts producing data.
+        // The firmware only captures samples into loggers whose module was
+        // enabled when the source began emitting; enabling logging after the
+        // sensor is already running leaves the loggers registered but idle,
+        // and the log length never rises. Same order as the polled path
+        // (logging enabled, then the timer kicked) and the reference C++ SDK
+        // (mbl_mw_logging_start before mbl_mw_acc_start).
         writeRaw(Packet.command(Module.LOGGING, LOG_CIRCULAR_BUFFER, 0x01)) // circular buffer on
         writeRaw(Packet.command(Module.LOGGING, LOG_ENABLE, 0x01))         // enable logging
+
+        // Now enable sensor output and start hardware
+        for (cmd in loggable.enableCommands) if (cmd.isNotEmpty()) writeRaw(cmd)
+        for (cmd in loggable.startCommands) if (cmd.isNotEmpty()) writeRaw(cmd)
     } catch (e: Throwable) {
         // Roll back — the logging session never started. Loggers already
         // subscribed on the board are orphaned (cleared by `clearLog()` /

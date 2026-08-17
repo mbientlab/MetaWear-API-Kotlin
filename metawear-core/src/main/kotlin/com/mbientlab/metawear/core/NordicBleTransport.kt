@@ -128,7 +128,19 @@ class NordicBleTransport(
             // MTU 247: packed 3-sample streaming does not fit the 23-byte
             // default (see class KDoc). The peripheral may negotiate down; the
             // MetaWear firmware accepts 247 on every supported board.
-            gatt.requestMtu(REQUESTED_MTU)
+            //
+            // Android 14 (API 34) and later negotiate the ATT MTU themselves
+            // when the first GATT client connects (a 517 request that settles
+            // at the peripheral's maximum — 247 on nRF52), and the result
+            // already applies to every client. An explicit request on top of
+            // that is not just redundant: on those releases the stack answers
+            // the first one with the pre-negotiation value, rejects the second
+            // with GATT_UNKNOWN, and never answers any later one at all — so
+            // awaiting it would wedge every reconnect after the first two.
+            // Only ask on older releases, where the app must negotiate itself.
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                runCatching { gatt.requestMtu(REQUESTED_MTU) }
+            }
 
             val notifyCharacteristic = characteristics[Uuids.notify]
                 ?: throw MetaWearException.OperationFailed(
@@ -225,8 +237,9 @@ class NordicBleTransport(
         characteristicFor(characteristic).write(DataByteArray(data), writeType)
     }
 
-    override suspend fun read(characteristic: UUID): ByteArray =
-        characteristicFor(characteristic).read().value
+    override suspend fun read(characteristic: UUID): ByteArray {
+        return characteristicFor(characteristic).read().value
+    }
 
     override suspend fun readRSSI(): Int = activeConnection().gatt.readRssi()
 

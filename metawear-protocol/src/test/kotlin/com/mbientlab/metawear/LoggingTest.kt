@@ -129,6 +129,27 @@ class LoggingTest {
     }
 
     @Test
+    fun `startLogging enables the logging module before starting the sensor`() = runTest {
+        // Firmware only captures samples into loggers whose module was enabled
+        // when the source began emitting. Verified on a MetaMotion S: with the
+        // sensor started first, both loggers are created (ids 0 and 1) and
+        // acknowledged, yet LOG_LENGTH stays at zero for the whole session.
+        val (device, transport) = connectedDevice()
+        val sensor = AccelerometerBmi160(AccelerometerBmi160.Odr.HZ100, AccelerometerBmi160.Range.G2)
+        startLoggingWithReplies(sensor, device, transport)
+
+        val cmds = transport.writtenCommands
+        val logEnableIdx = cmds.indexOfFirst { it.contentEquals(bytes(0x0B, 0x01, 0x01)) }
+        val sensorStartIdx = cmds.indexOfFirst { it.contentEquals(sensor.startCommand) }
+        assertTrue(logEnableIdx >= 0, "logging enable must be sent")
+        assertTrue(sensorStartIdx >= 0, "sensor start must be sent")
+        assertTrue(
+            logEnableIdx < sensorStartIdx,
+            "logging enable (index $logEnableIdx) must precede sensor start (index $sensorStartIdx)",
+        )
+    }
+
+    @Test
     fun `startLogging sends circular buffer command`() = runTest {
         val (device, transport) = connectedDevice()
         val sensor = AccelerometerBmi160(AccelerometerBmi160.Odr.HZ100, AccelerometerBmi160.Range.G2)

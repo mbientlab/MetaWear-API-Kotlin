@@ -241,11 +241,26 @@ internal class ProtocolRouter(
 
     // ---- Module discovery ----
 
-    suspend fun discoverModules(): Map<Module, ModuleInfo> = coroutineScope {
-        Module.entries
-            .map { module -> async { readModuleInfo(module) } }
-            .awaitAll()
-            .associateBy { it.module }
+    /**
+     * Read every module's info row, one request at a time.
+     *
+     * Sequential on purpose. Discovery reads are write-without-response, so
+     * firing all 21 concurrently puts 21 packets on the air within one
+     * connection interval — more than the board's inbound command queue
+     * holds, and it silently drops some. Observed on a MetaMotion S: 21 sent
+     * in 3 ms, 18–20 answered, the rest never; the missing reply then times
+     * out and fails the whole connect. Awaiting each reply before sending the
+     * next keeps at most one command in flight (the same request/response
+     * discipline as the reference C++ SDK) and costs about a second on
+     * connect.
+     */
+    suspend fun discoverModules(): Map<Module, ModuleInfo> {
+        val result = LinkedHashMap<Module, ModuleInfo>(Module.entries.size)
+        for (module in Module.entries) {
+            val info = readModuleInfo(module)
+            result[info.module] = info
+        }
+        return result
     }
 
     private suspend fun readModuleInfo(module: Module): ModuleInfo {

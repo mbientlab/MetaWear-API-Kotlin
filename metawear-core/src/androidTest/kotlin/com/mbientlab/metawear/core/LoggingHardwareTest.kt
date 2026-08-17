@@ -47,6 +47,22 @@ class LoggingHardwareTest {
         assumeTrue("BMI270 accel required (impl 4), got ${accel?.implementation}", accel?.implementation == 4)
     }
 
+    /**
+     * Poll LOG_LENGTH every 2 s until the board reports committed entries
+     * (up to 45 s), returning the count. Mirrors the firmware's page-commit
+     * cadence: entries become visible in 512-entry NAND pages, the first
+     * ~5-6 s after logging starts, and there is a short post-clearLog dead
+     * zone while the flash finishes housekeeping.
+     */
+    private suspend fun awaitEntriesLanding(device: com.mbientlab.metawear.MetaWearDevice): Long {
+        repeat(22) {
+            delay(2_000)
+            val n = device.read(LogLength()).value
+            if (n > 0) return n
+        }
+        return device.read(LogLength()).value
+    }
+
     @Test
     fun accelerometer_logsAndDownloads_roundTrip() =
         HardwareSupport.withConnectedDevice { device ->
@@ -56,7 +72,12 @@ class LoggingHardwareTest {
             device.clearLog()
             device.startLogging(accel)
             assertEquals(DeviceState.Logging, device.state.value)
-            delay(5_000) // 50 Hz × 5 s ≈ 250 entries in flash
+            // The MMS commits logged entries to NAND in 512-entry pages and
+            // reports LOG_LENGTH only for committed pages; the first page lands
+            // ~5-6 s after logging starts at 50 Hz (2 chunks/sample). Wait for
+            // it to land instead of assuming a fixed window.
+            awaitEntriesLanding(device)
+            delay(3_000) // a little more data on top of the first page
             device.stopLogging(accel)
             assertEquals(DeviceState.Idle, device.state.value)
 
@@ -97,8 +118,10 @@ class LoggingHardwareTest {
             val before = device.read(LogLength()).value
 
             device.startLogging(accel)
-            delay(2_000)
-            val during = device.read(LogLength()).value
+            // LOG_LENGTH is page-granular (512-entry NAND pages) and reads 0
+            // until the first page commits ~5-6 s in; poll for it rather than
+            // sampling a fixed 2 s window inside that dead zone.
+            val during = awaitEntriesLanding(device)
             device.stopLogging(accel)
 
             assertTrue("entry count should grow while logging: before=$before during=$during", during > before + 1)
