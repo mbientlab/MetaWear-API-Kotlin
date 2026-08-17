@@ -7,8 +7,10 @@ local.properties
 .DS_Store
 captures/
 .kotlin/
+CLAUDE.md
 
 # Release signing — never commit keystores or their credentials.
+store-assets/
 app/keystore.properties
 *.jks
 *.keystore
