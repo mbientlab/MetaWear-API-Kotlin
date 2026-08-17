@@ -1,30 +1,41 @@
 package com.mbientlab.metawear.app.ui.stream
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.mbientlab.metawear.app.core.BandwidthAdvisor
 import com.mbientlab.metawear.app.core.SensorKey
 import com.mbientlab.metawear.app.core.SensorSelection
 import com.mbientlab.metawear.app.ui.components.BandwidthCard
 import com.mbientlab.metawear.app.ui.components.BrandCard
-import com.mbientlab.metawear.app.ui.components.SectionHeader
 import com.mbientlab.metawear.app.ui.components.formatHz
 import com.mbientlab.metawear.app.ui.components.icon
 import com.mbientlab.metawear.app.ui.theme.Palette
+import com.mbientlab.metawear.app.ui.theme.forText
 import com.mbientlab.metawear.model.ModuleInfo
 import com.mbientlab.metawear.protocol.Module
 
@@ -71,28 +82,84 @@ fun SensorConfigSection(
     val available = availableSensors(modules)
         .filter { !loggingMode || it.canLog }
         .filterNot { it in excludeKeys }
-    val motion = available.filterNot { it.isEnvironmental }
-    val environmental = available.filter { it.isEnvironmental }
+    val groups = listOf(
+        "Motion" to available.filter { !it.isFusion && !it.isEnvironmental },
+        "Fusion" to available.filter { it.isFusion },
+        "Environmental" to available.filter { it.isEnvironmental },
+    ).filter { it.second.isNotEmpty() }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (motion.isNotEmpty()) {
-            SectionHeader("Motion & Fusion")
-            motion.forEach { key ->
-                SensorCard(key, selections, onSelectionsChange, locked)
-            }
-        }
-
-        if (environmental.isNotEmpty()) {
-            SectionHeader("Environmental")
-            environmental.forEach { key ->
-                SensorCard(key, selections, onSelectionsChange, locked)
-            }
+        groups.forEach { (title, keys) ->
+            CollapsibleSensorGroup(
+                title = title,
+                keys = keys,
+                selections = selections,
+                onSelectionsChange = onSelectionsChange,
+                locked = locked,
+            )
         }
 
         BandwidthCard(
             aggregateHz = BandwidthAdvisor.aggregateHz(selections),
             onHalve = { onSelectionsChange(BandwidthAdvisor.halved(selections)) },
         )
+    }
+}
+
+/**
+ * One sensor group behind a tappable header. Starts expanded only when one
+ * of its sensors is already selected, so a screen with a single active
+ * sensor shows one open group and two folded ones — and the content below
+ * the picker (active loggers, download) stays within reach. A collapsed
+ * group still reports how many of its sensors are selected.
+ */
+@Composable
+private fun CollapsibleSensorGroup(
+    title: String,
+    keys: List<SensorKey>,
+    selections: List<SensorSelection>,
+    onSelectionsChange: (List<SensorSelection>) -> Unit,
+    locked: Boolean,
+) {
+    val selectedCount = keys.count { key -> selections.any { it.key == key } }
+    var expanded by rememberSaveable(title) { mutableStateOf(selectedCount > 0) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.small)
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 4.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                color = Palette.accent.forText(),
+                modifier = Modifier.weight(1f),
+            )
+            if (selectedCount > 0) {
+                Text(
+                    "$selectedCount selected",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 8.dp),
+                )
+            }
+            Icon(
+                if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                keys.forEach { key ->
+                    SensorCard(key, selections, onSelectionsChange, locked)
+                }
+            }
+        }
     }
 }
 
