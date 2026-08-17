@@ -227,8 +227,12 @@ fun AppScaffold(
                         navigationIconContentColor = topBarContentColor,
                     )
                 } else {
+                    // Opaque at rest. A transparent container only works with
+                    // a scrollBehavior driving the scrolled color swap; without
+                    // one the bar stays see-through and list content scrolls
+                    // up underneath the title.
                     TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
+                        containerColor = MaterialTheme.colorScheme.surface,
                         scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                     )
                 },

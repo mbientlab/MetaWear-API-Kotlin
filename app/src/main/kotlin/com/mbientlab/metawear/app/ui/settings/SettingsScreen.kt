@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -39,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.mbientlab.metawear.app.ui.appViewModel
 import com.mbientlab.metawear.app.ui.components.ActionRow
@@ -155,16 +159,28 @@ fun SettingsScreen(onFactoryReset: () -> Unit, onBack: () -> Unit) {
                                 else -> status.activeLoggers.size.toString()
                             },
                         )
-                        // One line per armed logger so a stale configuration
+                        // One row per armed logger so a stale configuration
                         // from an earlier session (or another app) is visible.
+                        // A ListItem (headline + supporting line) instead of a
+                        // label/value pair: the detail string is wide and a
+                        // two-column row would starve the label of width.
                         status?.activeLoggers?.forEach { logger ->
                             HorizontalDivider()
-                            LabeledValue(
-                                "  Logger ${logger.loggerID}",
-                                "${logger.module.name.lowercase()} · reg 0x%02X · offset %d, %d B".format(
-                                    logger.register, logger.chunkOffset, logger.chunkLength,
-                                ),
-                                monospace = true,
+                            ListItem(
+                                headlineContent = { Text("Logger ${logger.loggerID}") },
+                                supportingContent = {
+                                    Text(
+                                        "${logger.module.name.lowercase().replaceFirstChar { it.uppercase() }} · " +
+                                            "register 0x%02X · bytes %d–%d".format(
+                                                logger.register,
+                                                logger.chunkOffset,
+                                                logger.chunkOffset + logger.chunkLength - 1,
+                                            ),
+                                        fontFamily = FontFamily.Monospace,
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             )
                         }
                         HorizontalDivider()
