@@ -38,6 +38,6 @@ include(":metawear-persistence")
 // (catalog client, bootloader interlock, DFU orchestration).
 include(":metawear-firmware")
 
-// Step 5: Jetpack Compose demo app
-// (scan, live stream, logging, sessions, controls, settings, firmware, demo mode).
+// Step 5: Jetpack Compose MetaWear app
+// (scan, live stream, logging, sessions, controls, settings, firmware).
 include(":app")

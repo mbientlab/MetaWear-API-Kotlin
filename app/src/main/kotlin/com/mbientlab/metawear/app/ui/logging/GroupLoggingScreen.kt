@@ -75,7 +75,6 @@ fun GroupLoggingScreen(onBack: () -> Unit, onSessionHistory: () -> Unit) {
     val boards by coordinator.boards.collectAsState()
     val isBusy by coordinator.isBusy.collectAsState()
     val lastPass by coordinator.lastPass.collectAsState()
-    val demoMode by container.demoModeEnabled.collectAsState()
     val remembered by container.remembered.devices.collectAsState()
     val records by container.logSessions.records.collectAsState()
     val rssiById by container.scanner.advertisementRssi.collectAsState()
@@ -84,17 +83,9 @@ fun GroupLoggingScreen(onBack: () -> Unit, onSessionHistory: () -> Unit) {
     var selections by remember { mutableStateOf(listOf(SensorSelection(SensorKey.ACCELEROMETER))) }
     var showStopDialog by remember { mutableStateOf(false) }
 
-    // Candidates: remembered boards, plus the demo fleet when demo mode is on.
-    val candidates = buildList {
-        if (demoMode) {
-            container.demoFleet.forEachIndexed { index, device ->
-                add(device.identifier to container.demoName(index))
-            }
-        }
-        remembered.forEach { device ->
-            if (none { it.first == device.mac }) add(device.mac to device.name)
-        }
-    }
+    // Candidates: every remembered board (a board must have been connected
+    // to once so the app knows it).
+    val candidates = remembered.map { it.mac to it.name }
 
     fun members(ids: Collection<String>): List<GroupCaptureCoordinator.Member> = ids.map { id ->
         GroupCaptureCoordinator.Member(
@@ -224,7 +215,7 @@ fun GroupLoggingScreen(onBack: () -> Unit, onSessionHistory: () -> Unit) {
                 if (candidates.isEmpty()) {
                     item {
                         SectionFooter(
-                            "No boards available — connect to a board once so it is remembered, or enable demo mode.",
+                            "No boards available — connect to a board once so it is remembered.",
                         )
                     }
                 } else {

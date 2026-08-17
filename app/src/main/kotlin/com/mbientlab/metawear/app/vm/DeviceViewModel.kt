@@ -10,7 +10,6 @@ import com.mbientlab.metawear.app.data.LogDownloader
 import com.mbientlab.metawear.app.data.OrphanLogState
 import com.mbientlab.metawear.app.data.RememberedDevice
 import com.mbientlab.metawear.app.data.foreignLogDecision
-import com.mbientlab.metawear.app.demo.DemoBleTransport
 import com.mbientlab.metawear.clearLog
 import com.mbientlab.metawear.model.BatteryState
 import com.mbientlab.metawear.queryActiveLoggers
@@ -72,7 +71,6 @@ class DeviceViewModel(private val container: AppContainer) : ViewModel() {
     val displayName: String
         get() {
             val id = device?.identifier ?: return "MetaWear"
-            if (id == DemoBleTransport.DEVICE_IDENTIFIER) return DemoBleTransport.DEVICE_NAME
             return container.scanner.advertisedNames.value[id]?.ifEmpty { null }
                 ?: container.remembered.devices.value.firstOrNull { it.mac == id }?.name
                 ?: id
@@ -198,8 +196,6 @@ class DeviceViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     private fun rememberDevice(device: MetaWearDevice) {
-        // The demo device is never persisted.
-        if (device.identifier == DemoBleTransport.DEVICE_IDENTIFIER) return
         val info = device.deviceInfo
         container.remembered.upsert(
             RememberedDevice(

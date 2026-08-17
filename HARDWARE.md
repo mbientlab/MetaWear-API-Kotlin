@@ -80,8 +80,9 @@ Then on the phone:
    - **Logging**: start a log, wait ~30 s, stop, download — progress bar
      completes, session appears in history, CSV export shares a file.
    - **Settings**: rename the device; rescan to see the new name.
-4. No board handy? Toggle **demo mode** on the scan screen — the entire app
-   runs against a synthesized board.
+4. No board handy? The app itself needs hardware, but the JVM suite drives
+   the same device stack against `DemoBleTransport` (a test-only emulator):
+   `./gradlew :app:testDebugUnitTest`.
 
 ## Troubleshooting
 

@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BluetoothDisabled
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FiberManualRecord
@@ -31,15 +30,12 @@ import androidx.compose.material.icons.filled.SettingsInputAntenna
 import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.material.icons.outlined.StopCircle
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -81,8 +77,8 @@ private fun requiredBlePermissions(): Array<String> =
     }
 
 /**
- * Connection screen: remembered boards, nearby advertisers, the demo board,
- * and a link into session history — all on the brand orange field.
+ * Connection screen: remembered boards, nearby advertisers, and a link into
+ * session history — all on the brand orange field.
  */
 @Composable
 fun ScanScreen(
@@ -97,7 +93,6 @@ fun ScanScreen(
     val isScanning by vm.isScanning.collectAsState()
     val nearbyAll by vm.nearbyDevices.collectAsState()
     val remembered by vm.remembered.collectAsState()
-    val demoMode by vm.demoModeEnabled.collectAsState()
     val lastError by vm.lastError.collectAsState()
     val records by container.logSessions.records.collectAsState()
     val activeId by container.activeDeviceId.collectAsState()
@@ -135,8 +130,7 @@ fun ScanScreen(
     }
 
     val bluetoothAvailable = vm.isBluetoothAvailable()
-    val demoRows = nearbyAll.filter { it.isDemo }
-    val nearby = nearbyAll.filter { row -> !row.isDemo && remembered.none { it.mac == row.identifier } }
+    val nearby = nearbyAll.filter { row -> remembered.none { it.mac == row.identifier } }
     val hasActiveGroup = records.any {
         it.groupID != null &&
             (it.status == LogSessionRecord.Status.RUNNING || it.status == LogSessionRecord.Status.STOPPED)
@@ -215,7 +209,7 @@ fun ScanScreen(
                 when {
                     !bluetoothAvailable -> item {
                         ScanNote(
-                            "Bluetooth is turned off or unavailable — turn it on to scan, or use demo mode.",
+                            "Bluetooth is off — turn it on to scan.",
                             icon = Icons.Filled.BluetoothDisabled,
                             tint = Palette.warning,
                         )
@@ -238,44 +232,6 @@ fun ScanScreen(
                             },
                             onTap = { connect(device.identifier) },
                         )
-                    }
-                }
-
-                item { SectionHeader("Demo", color = Color.White) }
-                item {
-                    BrandCard(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        contentPadding = PaddingValues(0.dp),
-                        verticalSpacing = 0.dp,
-                    ) {
-                        ListItem(
-                            headlineContent = { Text("Demo mode") },
-                            supportingContent = { Text("Synthetic sensors — no hardware needed") },
-                            trailingContent = {
-                                Switch(checked = demoMode, onCheckedChange = { vm.setDemoMode(it) })
-                            },
-                            colors = cardListItemColors(),
-                        )
-                        demoRows.forEach { demo ->
-                            HorizontalDivider()
-                            val isConnecting = activeId == demo.identifier && activeState == DeviceState.Connecting
-                            ListItem(
-                                headlineContent = { Text(demo.name) },
-                                supportingContent = { Text("Tap to connect to the simulated board") },
-                                leadingContent = {
-                                    Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = Palette.accent)
-                                },
-                                trailingContent = {
-                                    if (isConnecting) {
-                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                    } else {
-                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-                                    }
-                                },
-                                colors = cardListItemColors(),
-                                modifier = Modifier.combinedClickable(onClick = { connect(demo.identifier) }),
-                            )
-                        }
                     }
                 }
 

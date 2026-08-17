@@ -39,8 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.mbientlab.metawear.app.demo.DemoBleTransport
-import com.mbientlab.metawear.app.ui.appContainer
 import com.mbientlab.metawear.app.ui.appViewModel
 import com.mbientlab.metawear.app.ui.components.ActionRow
 import com.mbientlab.metawear.app.ui.components.AppScaffold
@@ -62,15 +60,11 @@ import com.mbientlab.metawear.sensor.Settings
 @Composable
 fun SettingsScreen(onFactoryReset: () -> Unit, onBack: () -> Unit) {
     val vm = appViewModel(::SettingsViewModel)
-    val container = appContainer()
     val statusMessage by vm.statusMessage.collectAsState()
     val lastError by vm.lastError.collectAsState()
     val didFactoryReset by vm.didFactoryReset.collectAsState()
 
-    // Firmware update is a real-hardware operation — hidden for the demo
-    // board, whose synthetic firmware revision the catalog can't resolve.
-    val isDemo = container.activeDeviceId.collectAsState().value == DemoBleTransport.DEVICE_IDENTIFIER
-    val firmwareVm = if (isDemo) null else appViewModel(::FirmwareUpdateViewModel)
+    val firmwareVm = appViewModel(::FirmwareUpdateViewModel)
 
     var name by remember { mutableStateOf("") }
     var intervalMs by remember { mutableStateOf("417") }
@@ -131,10 +125,8 @@ fun SettingsScreen(onFactoryReset: () -> Unit, onBack: () -> Unit) {
                 }
             }
 
-            if (firmwareVm != null) {
-                item { SectionHeader("Firmware") }
-                item { FirmwareSection(firmwareVm) }
-            }
+            item { SectionHeader("Firmware") }
+            item { FirmwareSection(firmwareVm) }
 
             item { SectionHeader("Advertising") }
             item {

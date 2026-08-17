@@ -18,7 +18,7 @@ The SDK is structured **KMP-ready, Android-only**: the pure protocol/parsing lay
 | [Requirements](#requirements) | Toolchain and Android versions |
 | [Supported boards](#supported-boards) | Which MetaMotion boards the SDK targets and how the model is detected |
 | [What ships in this repository](#what-ships-in-this-repository) | The five Gradle modules and what each one is for |
-| [The MetaWear App](#the-metawear-app) | The full Jetpack Compose app — what it does, running it (incl. demo mode), and how it's built |
+| [The MetaWear App](#the-metawear-app) | The full Jetpack Compose app — what it does, running it, and how it's built |
 | [Development workflow](#development-workflow) | Repository layout, common Gradle commands, toolchain notes |
 | [Quick Start](#quick-start) | Adding the SDK, permissions, scanning, connecting, streaming, and sending simple commands |
 | [Architecture](#architecture) | Understanding the scanner/device/protocol/transport layering |
@@ -31,7 +31,7 @@ The SDK is structured **KMP-ready, Android-only**: the pure protocol/parsing lay
 | [Data modes](#data-modes) | Streaming vs. logging, and the flash entry layout |
 | [BLE packet format](#ble-packet-format) | Wire format, characteristics, module IDs |
 | [Testing](#testing) | Running JVM unit tests, the mock transport, and the instrumented hardware suites |
-| [Demo mode](#demo-mode) | The hardware-free MetaMotion S emulator |
+| [Demo transport (test fixture)](#demo-transport-test-fixture) | The protocol-level MetaMotion S emulator that drives the app's JVM tests |
 | [Design notes](#design-notes) | Kotlin/coroutines gotchas the codebase relies on |
 | [What's not yet implemented](#whats-not-yet-implemented) | Known gaps |
 
@@ -98,9 +98,10 @@ metawear-android/
 └── app/                 ← Jetpack Compose MetaWear app: scan, live streaming with
                            ring-buffer decimation, on-device logging + download,
                            group (fleet) logging, session history with CSV export,
-                           LED/haptic controls, device settings, firmware updates,
-                           and a hardware-free demo mode (protocol-level
-                           MetaMotion S emulator).
+                           LED/haptic controls, device settings, and firmware
+                           updates. Its JVM tests drive the real device stack
+                           against DemoBleTransport, a protocol-level
+                           MetaMotion S emulator (test source set only).
 ```
 
 The modules are intentionally split so an app can take just protocol + core without pulling in Room or the DFU library. `:metawear-protocol` is the foundation everything else builds on, written test-first to lock wire-format correctness before any BLE code. The full vertical slice — scan → connect → `startStream(accelerometer)` → `Flow<Timestamped<CartesianFloat>>` — runs end-to-end against `MockBleTransport` on the JVM, and against real hardware via `:metawear-core`'s instrumented suites.
@@ -126,13 +127,11 @@ The repo carries **1274 JVM tests** across the four testable modules (1042 proto
 | **Controls** | LED color / pattern presets with play / stop, haptic motor strength and pulse-width sliders, buzzer pulse |
 | **Settings** | Validated advertising rename, advertising interval / timeout, TX power, a Maintenance section (reset LED, clear macros, clear events + timers, restart-without-erase), and a confirm-dialog factory reset |
 | **Firmware** | Catalog update check plus a Nordic-DFU update flow with state / progress UI |
-| **Demo mode** | A toggle on the scan screen runs the entire app against a protocol-level MetaMotion S emulator — no hardware needed |
 
 ### Running it
 
 1. Open the repo in Android Studio (JDK 21). The launch configuration is the **app** module.
-2. **With hardware** — run on a physical Android phone (Android 8.0+, Android 12+ recommended) and connect a MetaMotion board over Bluetooth. Grant the Bluetooth permission prompts on first scan.
-3. **Without hardware** — toggle **Demo mode** on the scan screen (the app also suggests it when Bluetooth is off). A "Simulated MetaWear" board appears and every screen works: synthetic live streams, a recordable / downloadable log session, battery / RSSI, and a three-board simulated fleet for group logging. See [Demo mode](#demo-mode).
+2. Run on a physical Android phone (Android 8.0+, Android 12+ recommended) and connect a MetaMotion board over Bluetooth. Grant the Bluetooth permission prompts on first scan. The app needs real hardware — with Bluetooth off, the scan screen shows a plain "turn it on to scan" note; the hardware-free path is the JVM test suite (see [Demo transport (test fixture)](#demo-transport-test-fixture)).
 
 Or install from the command line:
 
@@ -143,7 +142,7 @@ JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
 
 ### How it's built
 
-- **Jetpack Compose + Material 3**, single-activity (`MainActivity`) with Navigation Compose string routes (`"scan"`, `"group"`, `"device"`, `"info"`, `"stream"`, `"logging"`, `"sessions"`, `"controls"`, `"settings"`, `"firmware"`). No DI framework — `AppContainer` (owned by `MetaWearApplication`) is the process-wide root state: the shared `MetaWearScanner`, `PersistenceStore`, remembered-device store, log-session registry, demo-mode flag, and the `GroupCaptureCoordinator`. Each screen is driven by a focused ViewModel in `vm/`.
+- **Jetpack Compose + Material 3**, single-activity (`MainActivity`) with Navigation Compose string routes (`"scan"`, `"group"`, `"device"`, `"info"`, `"stream"`, `"logging"`, `"sessions"`, `"controls"`, `"settings"`, `"firmware"`). No DI framework — `AppContainer` (owned by `MetaWearApplication`) is the process-wide root state: the shared `MetaWearScanner`, `PersistenceStore`, remembered-device store, log-session registry, and the `GroupCaptureCoordinator`. Each screen is driven by a focused ViewModel in `vm/`.
 - **High-rate streaming pipeline** — samples ingest into plain ring buffers on a background coroutine (a 600-sample full-resolution capture ring plus a 180-sample 1-in-N decimated display ring, `Channel.kt` / `RingBuffer.kt`), and a ~33 ms ticker snapshots into Compose state (`StreamSessionViewModel`), so nothing touches UI state at sensor rate and charts stay smooth at 200 Hz.
 - **3D orientation** — the quaternion output renders a dependency-free Canvas wireframe cube (`QuaternionCube`, `TaredQuaternionCube`) that is **tared**: it shows rotation since a reference pose (auto-set from the first valid sample, re-zeroed by the Zero button) through the IMU's 90° mounting correction, because the raw quaternion's absolute frame isn't stable session-to-session. While a fusion output streams, a calibration badge polls `SensorFusionCalibrationState` every 2 s; the bar is MEDIUM, since HIGH is a live score the magnetometer legitimately loses indoors.
 - **Logging** — polled environmental sensors log through the SDK's timer → event → logger chain (`PolledLogger`); pending session records including the board-allocated polled-logger handles are persisted, so a fresh process can `recoverLoggers` and finish the download. Group capture arms boards sequentially (connect → clear → start → verify entries land → disconnect) and detects foreign logs with a pure decision table (`ForeignLog.kt`).
@@ -156,12 +155,11 @@ JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
 | `MetaWearApplication.kt`, `MainActivity.kt`, `AppContainer.kt` | Entry point, single activity, root app state |
 | `core/` | Pure-Kotlin logic: `RingBuffer`, `EffectiveHz`, `BandwidthAdvisor`, `CalibrationReadiness`, `QuaternionCube`, `QuaternionFrame`, `ReplayTimeline`, `SensorSelection`, `SessionHistoryGrouping` |
 | `data/` | Device-facing adapters: `ConfiguredSensor` (+ `openStream` / `startLoggingOn` / `decodeAndSave`), `LogDownloader`, `LogSessionRegistry`, `ForeignLog.kt`, `PolledPressure`, `RecordingHeartbeat`, `RememberedDeviceStore` |
-| `demo/` | `DemoBleTransport` — the hardware-free MetaMotion S emulator |
 | `export/` | `LiveBufferCsvExporter`, `ExportFilename`, `CsvShare` |
 | `vm/` | ViewModels (`ScannerViewModel`, `DeviceViewModel`, `StreamSessionViewModel`, `LogSessionViewModel`, `DownloadViewModel`, `SessionHistoryViewModel`, `ControlsViewModel`, `SettingsViewModel`, `FirmwareUpdateViewModel`), `Channel`, `GroupCaptureCoordinator` |
 | `ui/` | `AppNavHost`, one folder per screen (`scan`, `device`, `stream`, `logging`, `sessions`, `controls`, `settings`, `firmware`), shared `components/` (`LineChart`, `TaredQuaternionCube`, `FusionCalibrationBadge`, glass cards / badges), `theme/` |
 
-`app/src/test` holds 120 JVM tests, including end-to-end demo-pipeline walks through the real `MetaWearDevice` against `DemoBleTransport` and full group-capture runs against the real persistence store.
+`app/src/test` holds 120 JVM tests, including end-to-end walks through the real `MetaWearDevice` against `DemoBleTransport` (a test-only MetaMotion S emulator under `app/src/test/kotlin/com/mbientlab/metawear/app/demo/`) and full group-capture runs against the real persistence store.
 
 ---
 
@@ -191,7 +189,7 @@ JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
 ./gradlew :metawear-persistence:testDebugUnitTest    # persistence tests (JVM)
 ./gradlew :metawear-persistence:connectedAndroidTest # Room round-trips (needs a phone)
 ./gradlew :metawear-firmware:testDebugUnitTest       # firmware tests (JVM)
-./gradlew :app:testDebugUnitTest                     # app logic + demo-emulator tests (JVM)
+./gradlew :app:testDebugUnitTest                     # app logic + demo-transport tests (JVM)
 ./gradlew :app:assembleDebug                         # Compose app APK
 ./gradlew :metawear-core:connectedAndroidTest        # hardware suites (needs a phone + board)
 
@@ -371,7 +369,7 @@ device.send(Haptic.motor(dutyCycle = 80, pulseWidth = 500))
 │  (shared scan)         │  (per device, Nordic BLE)   │
 ├────────────────────────┴─────────────────────────────┤
 │  MockBleTransport  (JVM unit tests)                  │
-│  DemoBleTransport  (app demo mode, JVM tests)        │
+│  DemoBleTransport  (app JVM tests, test-only)        │
 │  connectedAndroidTest (hardware suites)              │
 └──────────────────────────────────────────────────────┘
 ```
@@ -525,7 +523,7 @@ The shared scan source is separate from the per-peripheral connection transport:
 | `AndroidBleScanSource`  | `:metawear-core`     | Unfiltered BLE scan → `Flow<ScanResult>` (`identifier` = MAC, `name`, `rssi`, `manufacturerData`, `serviceUUIDs`). Scan-only; connection calls throw. |
 | `NordicBleTransport`    | `:metawear-core`     | One per device. GATT connect / write / read / notify / RSSI on the Nordic Kotlin BLE Library.                                                |
 | `MockBleTransport`      | `:metawear-protocol` | Public in-memory transport for unit tests. Inject notifications with `inject(notification, characteristic)`; inspect `writtenCommands`. No hardware required. |
-| `DemoBleTransport`      | `:app`               | Protocol-level MetaMotion S emulator behind the same seam (see [Demo mode](#demo-mode)).                                                    |
+| `DemoBleTransport`      | `:app` (test only)   | Protocol-level MetaMotion S emulator behind the same seam (see [Demo transport (test fixture)](#demo-transport-test-fixture)).              |
 
 `NordicBleTransport` connect flow and transport notes:
 
@@ -1686,7 +1684,7 @@ Four JVM test source sets ship with the repo — **1274 tests** in total:
 - **`:metawear-protocol`** — 1042 tests across 43 files. The full SDK surface, run against `MockBleTransport`, including reference byte vectors from the MetaWear C++ SDK's Python test suite. No hardware required.
 - **`:metawear-persistence`** — 46 tests (`PersistableConformanceTest`, `PersistenceStoreTest`, `SessionExportTest`, `AttributionStampTest`) against an in-memory fake DAO — no hardware, no on-disk side effects.
 - **`:metawear-firmware`** — 66 tests (`BootloaderInterlockTest`, `DFUProgressTest`, `FirmwareBuildTest`, `FirmwareCatalogTest`, `FirmwareExceptionTest`, `FirmwareServerTest`, `MetaWearVersionTest`).
-- **`:app`** — 120 tests: ring buffer / decimation / effective-Hz math, quaternion cube and tare frame, CSV exporters, session grouping, foreign-log decisions, group-capture coordination, and end-to-end demo-emulator walks through the real `MetaWearDevice`.
+- **`:app`** — 120 tests: ring buffer / decimation / effective-Hz math, quaternion cube and tare frame, CSV exporters, session grouping, foreign-log decisions, group-capture coordination, and end-to-end walks through the real `MetaWearDevice` against the test-only `DemoBleTransport`.
 
 `:metawear-protocol` coverage by file (ordered roughly by dependency):
 
@@ -1782,13 +1780,13 @@ See [`HARDWARE.md`](HARDWARE.md) for the full step-by-step procedure (phone setu
 
 ---
 
-## Demo mode
+## Demo transport (test fixture)
 
-`DemoBleTransport` (`app/src/main/kotlin/com/mbientlab/metawear/app/demo/`) is a protocol-level MetaMotion S emulator behind the same `BleTransport` seam the real transport implements. It emulates a connected MetaMotion S on firmware 1.7.3: module discovery, Device Information / battery / MAC / temperature / humidity / pressure / illuminance / log reads, synthetic waveforms on every sensor including the packed registers, all seven fusion outputs, altitude and ambient light, and full logging round trips — streamed sensors, the polled timer / event / logger chain, and logger recovery across a simulated process restart.
+`DemoBleTransport` (`app/src/test/kotlin/com/mbientlab/metawear/app/demo/`) is a protocol-level MetaMotion S emulator behind the same `BleTransport` seam the real transport implements. It lives in the app's **test source set only** — the shipping app has no demo mode and never constructs it. It emulates a connected MetaMotion S on firmware 1.7.3: module discovery, Device Information / battery / MAC / temperature / humidity / pressure / illuminance / log reads, synthetic waveforms on every sensor including the packed registers, all seven fusion outputs, altitude and ambient light, and full logging round trips — streamed sensors, the polled timer / event / logger chain, and logger recovery across a simulated process restart.
 
-- Turn it on with the **Demo mode** switch on the scan screen (no build flag or launch argument). The scan list shows a "Simulated MetaWear" board (`DE:30:DE:30:DE:30`), and the group-logging screen exposes a three-board simulated fleet.
-- `DemoBleTransport.Identity.board(index)` mints up to 16 distinguishable identities (MAC, serial, waveform phase offset), so fleet flows work end-to-end with no hardware.
-- The class is pure Kotlin (no Android imports), so the JVM unit tests drive it through the real `MetaWearDevice` — including full group-capture walks against the real persistence store.
+- The JVM tests build a `MetaWearDevice` directly over it (`MetaWearDevice(identity.identifier, DemoBleTransport(scope, identity), scope)`) and drive the real device stack — connect, discovery, streaming, logging, download — with no hardware and no Android runtime.
+- `DemoBleTransport.Identity.board(index)` mints up to 16 distinguishable identities (MAC, serial, waveform phase offset), so `GroupCaptureCoordinatorTest` walks a simulated three-board fleet end-to-end against the real persistence store.
+- The class is pure Kotlin (no Android imports); `DemoBleTransportTest` and `DemoIdentityTest` cover its protocol fidelity and identity minting.
 
 The 3D orientation view is deliberately a Canvas wireframe cube: only the quaternion frame math is load-bearing, and it stays dependency-free.
 
