@@ -1,6 +1,6 @@
 # Hardware verification guide
 
-Everything in this repo is verified by 1,173 JVM tests that run without
+Everything in this repo is verified by 1,274 JVM tests that run without
 hardware. Three things remain that can only be proven against a real board
 and phone. This guide is the exact procedure.
 
