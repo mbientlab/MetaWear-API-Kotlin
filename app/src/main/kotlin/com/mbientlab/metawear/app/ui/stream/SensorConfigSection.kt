@@ -1,16 +1,17 @@
 package com.mbientlab.metawear.app.ui.stream
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,10 +19,12 @@ import androidx.compose.ui.unit.dp
 import com.mbientlab.metawear.app.core.BandwidthAdvisor
 import com.mbientlab.metawear.app.core.SensorKey
 import com.mbientlab.metawear.app.core.SensorSelection
-import com.mbientlab.metawear.app.ui.components.GlassCard
+import com.mbientlab.metawear.app.ui.components.BandwidthCard
+import com.mbientlab.metawear.app.ui.components.BrandCard
 import com.mbientlab.metawear.app.ui.components.SectionHeader
-import com.mbientlab.metawear.app.ui.theme.GlassTextDim
-import com.mbientlab.metawear.app.ui.theme.GlassWarn
+import com.mbientlab.metawear.app.ui.components.formatHz
+import com.mbientlab.metawear.app.ui.components.icon
+import com.mbientlab.metawear.app.ui.theme.Palette
 import com.mbientlab.metawear.model.ModuleInfo
 import com.mbientlab.metawear.protocol.Module
 
@@ -48,10 +51,12 @@ fun availableSensors(modules: Map<Module, ModuleInfo>): List<SensorKey> {
 /**
  * Multi-select sensor picker with per-sensor rate/range chips (streamed) or
  * polling-interval chips (polled readables), plus the bandwidth advisory.
- * Shared by the live-stream and logging screens.
+ * Shared by the live-stream, logging, and group-logging screens.
  *
  * @param loggingMode hides stream-only signals (altitude) that can't be
  *   captured to flash.
+ * @param locked disables every control — used while a log session is
+ *   recording so the configuration can't be edited mid-session.
  */
 @Composable
 fun SensorConfigSection(
@@ -61,6 +66,7 @@ fun SensorConfigSection(
     loggingMode: Boolean = false,
     /** Kinds hidden outright (e.g. group logging excludes temperature/humidity). */
     excludeKeys: Set<SensorKey> = emptySet(),
+    locked: Boolean = false,
 ) {
     val available = availableSensors(modules)
         .filter { !loggingMode || it.canLog }
@@ -72,30 +78,21 @@ fun SensorConfigSection(
         if (motion.isNotEmpty()) {
             SectionHeader("Motion & Fusion")
             motion.forEach { key ->
-                SensorCard(key, selections, onSelectionsChange)
+                SensorCard(key, selections, onSelectionsChange, locked)
             }
         }
 
         if (environmental.isNotEmpty()) {
             SectionHeader("Environmental")
             environmental.forEach { key ->
-                SensorCard(key, selections, onSelectionsChange)
+                SensorCard(key, selections, onSelectionsChange, locked)
             }
         }
 
-        if (BandwidthAdvisor.isOverCeiling(selections)) {
-            GlassCard {
-                Text(
-                    "Combined rate ${BandwidthAdvisor.aggregateHz(selections).toInt()} Hz exceeds the " +
-                        "~${BandwidthAdvisor.BLE_SAFE_CEILING_HZ.toInt()} Hz BLE ceiling — samples may drop.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = GlassWarn,
-                )
-                TextButton(onClick = { onSelectionsChange(BandwidthAdvisor.halved(selections)) }) {
-                    Text("Halve all rates")
-                }
-            }
-        }
+        BandwidthCard(
+            aggregateHz = BandwidthAdvisor.aggregateHz(selections),
+            onHalve = { onSelectionsChange(BandwidthAdvisor.halved(selections)) },
+        )
     }
 }
 
@@ -104,23 +101,32 @@ private fun SensorCard(
     key: SensorKey,
     selections: List<SensorSelection>,
     onSelectionsChange: (List<SensorSelection>) -> Unit,
+    locked: Boolean,
 ) {
     val selection = selections.firstOrNull { it.key == key }
-    GlassCard {
+    val onToggle: (Boolean) -> Unit = { checked ->
+        onSelectionsChange(
+            if (checked) selections + SensorSelection(key)
+            else selections.filterNot { it.key == key },
+        )
+    }
+    BrandCard(onClick = if (locked) null else ({ onToggle(selection == null) })) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(key.title, style = MaterialTheme.typography.titleSmall)
+            Icon(
+                key.icon,
+                contentDescription = null,
+                tint = if (selection != null) Palette.accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp),
+            )
+            Text(key.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             Checkbox(
                 checked = selection != null,
-                onCheckedChange = { checked ->
-                    onSelectionsChange(
-                        if (checked) selections + SensorSelection(key)
-                        else selections.filterNot { it.key == key },
-                    )
-                },
+                onCheckedChange = onToggle,
+                enabled = !locked,
             )
         }
         if (selection != null) {
@@ -128,11 +134,11 @@ private fun SensorCard(
                 onSelectionsChange(selections.map { if (it.key == key) updated else it })
 
             if (key.isPolled) {
-                IntervalRow(selection, ::update)
+                IntervalRow(selection, ::update, locked)
             } else {
-                RateRow(selection, ::update)
+                RateRow(selection, ::update, locked)
                 if (key.rangeOptions.isNotEmpty()) {
-                    RangeRow(selection, ::update)
+                    RangeRow(selection, ::update, locked)
                 }
             }
         }
@@ -140,26 +146,28 @@ private fun SensorCard(
 }
 
 @Composable
-private fun RateRow(selection: SensorSelection, onChange: (SensorSelection) -> Unit) {
+private fun RateRow(selection: SensorSelection, onChange: (SensorSelection) -> Unit, locked: Boolean) {
     ChipRow("Rate") {
         selection.key.rateOptionsHz.forEach { hz ->
             FilterChip(
                 selected = selection.hz == hz,
                 onClick = { onChange(selection.copy(hz = hz)) },
                 label = { Text(formatHz(hz)) },
+                enabled = !locked,
             )
         }
     }
 }
 
 @Composable
-private fun RangeRow(selection: SensorSelection, onChange: (SensorSelection) -> Unit) {
+private fun RangeRow(selection: SensorSelection, onChange: (SensorSelection) -> Unit, locked: Boolean) {
     ChipRow("Range") {
         selection.key.rangeOptions.forEach { range ->
             FilterChip(
                 selected = selection.range == range,
                 onClick = { onChange(selection.copy(range = range)) },
                 label = { Text("±${range.toInt()} ${selection.key.rangeUnit}") },
+                enabled = !locked,
             )
         }
     }
@@ -167,13 +175,14 @@ private fun RangeRow(selection: SensorSelection, onChange: (SensorSelection) -> 
 
 /** Polling-interval chips (1 s … 5 m) for the environmental readables. */
 @Composable
-private fun IntervalRow(selection: SensorSelection, onChange: (SensorSelection) -> Unit) {
+private fun IntervalRow(selection: SensorSelection, onChange: (SensorSelection) -> Unit, locked: Boolean) {
     ChipRow("Every") {
         selection.key.pollIntervalOptionsMs.forEach { intervalMs ->
             FilterChip(
                 selected = selection.effectivePollIntervalMs == intervalMs,
                 onClick = { onChange(selection.withPollInterval(intervalMs)) },
                 label = { Text(SensorSelection.formatPollInterval(intervalMs)) },
+                enabled = !locked,
             )
         }
     }
@@ -188,10 +197,11 @@ private fun ChipRow(label: String, content: @Composable () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = GlassTextDim)
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         content()
     }
 }
-
-private fun formatHz(hz: Double): String =
-    if (hz == hz.toLong().toDouble()) "${hz.toLong()} Hz" else "$hz Hz"

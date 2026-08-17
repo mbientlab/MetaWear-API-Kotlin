@@ -2,16 +2,35 @@ package com.mbientlab.metawear.app.ui.logging
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DoNotDisturbOn
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PauseCircle
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SaveAlt
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,20 +39,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.mbientlab.metawear.app.core.SensorKey
 import com.mbientlab.metawear.app.core.SensorSelection
 import com.mbientlab.metawear.app.data.LogSessionRecord
 import com.mbientlab.metawear.app.ui.appContainer
-import com.mbientlab.metawear.app.ui.components.GlassCard
+import com.mbientlab.metawear.app.ui.components.ActionRow
+import com.mbientlab.metawear.app.ui.components.AppScaffold
+import com.mbientlab.metawear.app.ui.components.GroupCard
+import com.mbientlab.metawear.app.ui.components.RssiChip
+import com.mbientlab.metawear.app.ui.components.SectionFooter
 import com.mbientlab.metawear.app.ui.components.SectionHeader
+import com.mbientlab.metawear.app.ui.components.cardListItemColors
+import com.mbientlab.metawear.app.ui.components.formatClock
 import com.mbientlab.metawear.app.ui.stream.SensorConfigSection
-import com.mbientlab.metawear.app.ui.theme.GlassError
-import com.mbientlab.metawear.app.ui.theme.GlassGood
-import com.mbientlab.metawear.app.ui.theme.GlassTextDim
-import com.mbientlab.metawear.app.ui.theme.GlassWarn
+import com.mbientlab.metawear.app.ui.theme.Palette
+import com.mbientlab.metawear.app.ui.theme.forText
 import com.mbientlab.metawear.app.vm.GroupCaptureCoordinator
 import kotlinx.coroutines.launch
 
@@ -44,7 +68,7 @@ import kotlinx.coroutines.launch
  * lives on the app container.
  */
 @Composable
-fun GroupLoggingScreen() {
+fun GroupLoggingScreen(onBack: () -> Unit, onSessionHistory: () -> Unit) {
     val container = appContainer()
     val coordinator = container.groupCapture
 
@@ -54,6 +78,7 @@ fun GroupLoggingScreen() {
     val demoMode by container.demoModeEnabled.collectAsState()
     val remembered by container.remembered.devices.collectAsState()
     val records by container.logSessions.records.collectAsState()
+    val rssiById by container.scanner.advertisementRssi.collectAsState()
 
     var selectedIds by remember { mutableStateOf(setOf<String>()) }
     var selections by remember { mutableStateOf(listOf(SensorSelection(SensorKey.ACCELEROMETER))) }
@@ -78,141 +103,201 @@ fun GroupLoggingScreen() {
         )
     }
 
+    fun isPending(status: LogSessionRecord.Status) =
+        status == LogSessionRecord.Status.RUNNING || status == LogSessionRecord.Status.STOPPED
+
     // Records with a group id are the durable "fleet recording" signal
     // (they survive app restarts).
-    val activeGroupRecords = records.filter {
-        it.groupID != null &&
-            (it.status == LogSessionRecord.Status.RUNNING || it.status == LogSessionRecord.Status.STOPPED)
+    val activeGroupRecords = records.filter { it.groupID != null && isPending(it.status) }
+    val activeByBoard = activeGroupRecords.groupBy { it.deviceId }
+        .entries.sortedBy { entry -> entry.value.minOf { it.startDate } }
+    val anyRunning = activeGroupRecords.any { it.status == LogSessionRecord.Status.RUNNING }
+
+    // Hide "Last Run" when it would only duplicate the active-group section
+    // (a fully successful start pass: every board it lists is already shown,
+    // recording, under "Logging In Progress").
+    val lastRunIsRedundant = !isBusy && activeGroupRecords.isNotEmpty() &&
+        boards.all { it.phase == GroupCaptureCoordinator.BoardPhase.Logging }
+    val showProgress = (isBusy || boards.isNotEmpty()) && !lastRunIsRedundant
+    val failed = boards.filter { it.phase is GroupCaptureCoordinator.BoardPhase.Failed }
+    val savedAny = boards.any {
+        it.phase is GroupCaptureCoordinator.BoardPhase.Saved || it.phase is GroupCaptureCoordinator.BoardPhase.SavedWithIssues
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        item { Text("Group Logging", style = MaterialTheme.typography.headlineSmall) }
-        item {
-            Text(
-                "Log the same sensors across several boards at once. Boards are armed one at " +
-                    "a time; each keeps recording on its own until you collect.",
-                style = MaterialTheme.typography.bodySmall,
-                color = GlassTextDim,
-            )
-        }
-
-        item { SectionHeader("Boards") }
-        if (candidates.isEmpty()) {
-            item {
-                GlassCard {
-                    Text(
-                        "No boards yet — connect to a board once (or enable demo mode) so it " +
-                            "appears here.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GlassTextDim,
-                    )
-                }
-            }
-        }
-        items(candidates, key = { it.first }) { (id, name) ->
-            GlassCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(name, style = MaterialTheme.typography.titleSmall)
-                        Text(id, style = MaterialTheme.typography.bodySmall, color = GlassTextDim)
-                        if (records.any {
-                                it.deviceId == id &&
-                                    (
-                                        it.status == LogSessionRecord.Status.RUNNING ||
-                                            it.status == LogSessionRecord.Status.STOPPED
-                                        )
-                            }
-                        ) {
-                            Text(
-                                "Has a session waiting",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = GlassWarn,
+    AppScaffold(title = "Group Logging", onBack = onBack) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = padding.calculateTopPadding() + 4.dp,
+                bottom = padding.calculateBottomPadding() + 24.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (showProgress) {
+                item { SectionHeader(if (isBusy) "Working…" else "Last Run") }
+                item {
+                    GroupCard {
+                        boards.forEachIndexed { index, board ->
+                            if (index > 0) HorizontalDivider()
+                            ListItem(
+                                headlineContent = { Text(board.name) },
+                                supportingContent = { Text(phaseText(board.phase)) },
+                                leadingContent = { PhaseIcon(board.phase) },
+                                colors = cardListItemColors(),
+                            )
+                        }
+                        if (!isBusy && savedAny) {
+                            HorizontalDivider()
+                            ActionRow("View Saved Sessions", Icons.Filled.History, onClick = onSessionHistory)
+                        }
+                        if (!isBusy && lastPass == GroupCaptureCoordinator.PassKind.COLLECT && failed.isNotEmpty()) {
+                            HorizontalDivider()
+                            ActionRow(
+                                "Retry Failed Download${if (failed.size == 1) "" else "s"}",
+                                Icons.Filled.Refresh,
+                                onClick = {
+                                    val retry = members(failed.map { it.id })
+                                    container.appScope.launch { coordinator.stopAndDownloadAll(retry) }
+                                },
                             )
                         }
                     }
-                    Checkbox(
-                        checked = id in selectedIds,
-                        onCheckedChange = { checked ->
-                            selectedIds = if (checked) selectedIds + id else selectedIds - id
-                        },
-                    )
                 }
-            }
-        }
-
-        item { SectionHeader("Shared sensors") }
-        item {
-            SensorConfigSection(
-                modules = emptyMap(),   // fleet-wide config: no single module table to gate on
-                selections = selections,
-                onSelectionsChange = { selections = it },
-                loggingMode = true,
-                // The multichannel thermometer and the humidity readable vary
-                // per board generation — keep the shared group config to the
-                // kinds every board runs identically.
-                excludeKeys = setOf(SensorKey.TEMPERATURE, SensorKey.HUMIDITY),
-            )
-        }
-
-        item {
-            Button(
-                onClick = {
-                    val chosen = members(selectedIds)
-                    container.appScope.launch { coordinator.startAll(chosen, selections) }
-                },
-                enabled = !isBusy && selectedIds.isNotEmpty() && selections.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Start Logging All (${selectedIds.size})") }
-        }
-
-        if (activeGroupRecords.isNotEmpty()) {
-            item { SectionHeader("Recording group") }
-            item {
-                GlassCard {
-                    Text(
-                        "${activeGroupRecords.map { it.deviceId }.distinct().size} board(s) have " +
-                            "group sessions pending.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Button(
-                        onClick = { showStopDialog = true },
-                        enabled = !isBusy,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Stop & Download All") }
-                }
-            }
-        }
-
-        if (boards.isNotEmpty()) {
-            item { SectionHeader("Progress") }
-            items(boards, key = { it.id }) { board ->
-                GlassCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(board.name, style = MaterialTheme.typography.titleSmall)
-                        PhaseText(board.phase)
+                if (!isBusy) {
+                    item {
+                        SectionFooter(
+                            "Skipped boards keep their data — collect them here later, or connect to one " +
+                                "directly and use its Logging screen.",
+                        )
                     }
                 }
             }
-            val failed = boards.filter { it.phase is GroupCaptureCoordinator.BoardPhase.Failed }
-            if (failed.isNotEmpty() && !isBusy && lastPass == GroupCaptureCoordinator.PassKind.COLLECT) {
+
+            if (activeGroupRecords.isNotEmpty()) {
+                item { SectionHeader(if (anyRunning) "Logging In Progress" else "Ready To Collect") }
                 item {
-                    TextButton(onClick = {
-                        val retry = members(failed.map { it.id })
-                        container.appScope.launch { coordinator.stopAndDownloadAll(retry) }
-                    }) { Text("Retry Failed Download(s)") }
+                    GroupCard {
+                        activeByBoard.forEachIndexed { index, (deviceId, boardRecords) ->
+                            if (index > 0) HorizontalDivider()
+                            val isRunning = boardRecords.any { it.status == LogSessionRecord.Status.RUNNING }
+                            ListItem(
+                                headlineContent = { Text(container.displayNameFor(deviceId) ?: deviceId) },
+                                supportingContent = {
+                                    Text(
+                                        if (isRunning) {
+                                            "${boardRecords.size} sensor${if (boardRecords.size == 1) "" else "s"} · " +
+                                                "since ${boardRecords.minOf { it.startDate }.formatClock()}"
+                                        } else {
+                                            "Stopped — awaiting download"
+                                        },
+                                    )
+                                },
+                                leadingContent = {
+                                    Icon(
+                                        if (isRunning) Icons.Filled.FiberManualRecord else Icons.Filled.PauseCircle,
+                                        contentDescription = null,
+                                        tint = if (isRunning) Palette.danger else Palette.warning,
+                                    )
+                                },
+                                colors = cardListItemColors(),
+                            )
+                        }
+                        HorizontalDivider()
+                        ActionRow(
+                            if (anyRunning) "Stop & Download All" else "Download All",
+                            Icons.Filled.SaveAlt,
+                            onClick = { showStopDialog = true },
+                            enabled = !isBusy,
+                        )
+                    }
+                }
+                item {
+                    SectionFooter(
+                        "The boards record on their own — you can close the app or leave. " +
+                            "Come back here to collect everything at once.",
+                    )
+                }
+            } else if (!isBusy) {
+                item { SectionHeader("Boards") }
+                if (candidates.isEmpty()) {
+                    item {
+                        SectionFooter(
+                            "No boards available — connect to a board once so it is remembered, or enable demo mode.",
+                        )
+                    }
+                } else {
+                    item {
+                        GroupCard {
+                            candidates.forEachIndexed { index, (id, name) ->
+                                if (index > 0) HorizontalDivider()
+                                val hasWaiting = records.any { it.deviceId == id && isPending(it.status) }
+                                ListItem(
+                                    headlineContent = { Text(name) },
+                                    supportingContent = {
+                                        Column {
+                                            Text(id, fontFamily = FontFamily.Monospace)
+                                            if (hasWaiting) {
+                                                Text("Has a session waiting — download it first", color = Palette.warning.forText())
+                                            }
+                                        }
+                                    },
+                                    leadingContent = {
+                                        Checkbox(
+                                            checked = id in selectedIds,
+                                            onCheckedChange = { checked ->
+                                                selectedIds = if (checked) selectedIds + id else selectedIds - id
+                                            },
+                                        )
+                                    },
+                                    trailingContent = rssiById[id]?.let { rssi -> { RssiChip(rssi) } },
+                                    colors = cardListItemColors(),
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    SectionFooter(
+                        "Every selected board records the same sensors. Boards are set up one at a time and keep " +
+                            "logging on their own — no connection needed while they record.",
+                    )
+                }
+
+                item {
+                    SensorConfigSection(
+                        modules = emptyMap(), // fleet-wide config: no single module table to gate on
+                        selections = selections,
+                        onSelectionsChange = { selections = it },
+                        loggingMode = true,
+                        // The multichannel thermometer and the humidity readable vary
+                        // per board generation — keep the shared group config to the
+                        // kinds every board runs identically.
+                        excludeKeys = setOf(SensorKey.TEMPERATURE, SensorKey.HUMIDITY),
+                    )
+                }
+
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Button(
+                            onClick = {
+                                val chosen = members(selectedIds)
+                                container.appScope.launch { coordinator.startAll(chosen, selections) }
+                            },
+                            enabled = !isBusy && selectedIds.isNotEmpty() && selections.isNotEmpty(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Palette.danger, contentColor = Color.White),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Filled.FiberManualRecord, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Start Logging All")
+                        }
+                        SectionFooter(
+                            if (selectedIds.isEmpty()) "Select at least one board above."
+                            else "${selectedIds.size} board${if (selectedIds.size == 1) "" else "s"} will start logging.",
+                        )
+                    }
                 }
             }
         }
@@ -221,11 +306,11 @@ fun GroupLoggingScreen() {
     if (showStopDialog) {
         AlertDialog(
             onDismissRequest = { showStopDialog = false },
-            title = { Text("Stop & download all?") },
+            title = { Text("Stop logging on all boards and download their data?") },
             text = {
                 Text(
-                    "Every board in the group stops recording, then each is downloaded in turn. " +
-                        "Keep the boards nearby.",
+                    "Each board is collected in turn. Boards that are out of range are skipped — " +
+                        "their data stays on the board for later.",
                 )
             },
             confirmButton = {
@@ -233,30 +318,50 @@ fun GroupLoggingScreen() {
                     showStopDialog = false
                     val ids = activeGroupRecords.map { it.deviceId }.distinct()
                     container.appScope.launch { coordinator.stopAndDownloadAll(members(ids)) }
-                }) { Text("Stop & Download") }
+                }) { Text("Stop & Download All") }
             },
             dismissButton = {
-                TextButton(onClick = { showStopDialog = false }) { Text("Cancel") }
+                OutlinedButton(onClick = { showStopDialog = false }) { Text("Cancel") }
             },
         )
     }
 }
 
 @Composable
-private fun PhaseText(phase: GroupCaptureCoordinator.BoardPhase) {
-    val (text, color) = when (phase) {
-        GroupCaptureCoordinator.BoardPhase.Pending -> "Waiting…" to GlassTextDim
-        GroupCaptureCoordinator.BoardPhase.Connecting -> "Connecting…" to GlassTextDim
-        GroupCaptureCoordinator.BoardPhase.Starting -> "Starting…" to GlassTextDim
-        GroupCaptureCoordinator.BoardPhase.Verifying -> "Verifying…" to GlassTextDim
-        GroupCaptureCoordinator.BoardPhase.Logging -> "Logging" to GlassGood
-        GroupCaptureCoordinator.BoardPhase.Stopping -> "Stopping…" to GlassTextDim
-        GroupCaptureCoordinator.BoardPhase.Downloading -> "Downloading…" to GlassTextDim
-        is GroupCaptureCoordinator.BoardPhase.Saved -> "Saved ${phase.count} session(s)" to GlassGood
+private fun PhaseIcon(phase: GroupCaptureCoordinator.BoardPhase) {
+    when (phase) {
+        GroupCaptureCoordinator.BoardPhase.Pending ->
+            Icon(Icons.Filled.RadioButtonUnchecked, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        GroupCaptureCoordinator.BoardPhase.Connecting,
+        GroupCaptureCoordinator.BoardPhase.Starting,
+        GroupCaptureCoordinator.BoardPhase.Verifying,
+        GroupCaptureCoordinator.BoardPhase.Stopping,
+        GroupCaptureCoordinator.BoardPhase.Downloading,
+        -> CircularProgressIndicator(modifier = Modifier.padding(2.dp).size(20.dp), strokeWidth = 2.dp)
+        GroupCaptureCoordinator.BoardPhase.Logging ->
+            Icon(Icons.Filled.FiberManualRecord, contentDescription = null, tint = Palette.danger)
+        is GroupCaptureCoordinator.BoardPhase.Saved ->
+            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Palette.success)
         is GroupCaptureCoordinator.BoardPhase.SavedWithIssues ->
-            "Saved ${phase.count} — ${phase.message}" to GlassWarn
-        is GroupCaptureCoordinator.BoardPhase.Skipped -> phase.message to GlassWarn
-        is GroupCaptureCoordinator.BoardPhase.Failed -> phase.message to GlassError
+            Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = Palette.warning)
+        is GroupCaptureCoordinator.BoardPhase.Skipped ->
+            Icon(Icons.Filled.DoNotDisturbOn, contentDescription = null, tint = Palette.warning)
+        is GroupCaptureCoordinator.BoardPhase.Failed ->
+            Icon(Icons.Filled.Warning, contentDescription = null, tint = Palette.danger)
     }
-    Text(text, style = MaterialTheme.typography.labelMedium, color = color)
+}
+
+private fun phaseText(phase: GroupCaptureCoordinator.BoardPhase): String = when (phase) {
+    GroupCaptureCoordinator.BoardPhase.Pending -> "Waiting…"
+    GroupCaptureCoordinator.BoardPhase.Connecting -> "Connecting…"
+    GroupCaptureCoordinator.BoardPhase.Starting -> "Starting loggers…"
+    GroupCaptureCoordinator.BoardPhase.Verifying -> "Confirming data is recording…"
+    GroupCaptureCoordinator.BoardPhase.Logging -> "Logging"
+    GroupCaptureCoordinator.BoardPhase.Stopping -> "Stopping…"
+    GroupCaptureCoordinator.BoardPhase.Downloading -> "Downloading…"
+    is GroupCaptureCoordinator.BoardPhase.Saved -> "Saved ${phase.count} session${if (phase.count == 1) "" else "s"}"
+    is GroupCaptureCoordinator.BoardPhase.SavedWithIssues ->
+        "Saved ${phase.count} session${if (phase.count == 1) "" else "s"} · ${phase.message}"
+    is GroupCaptureCoordinator.BoardPhase.Skipped -> phase.message
+    is GroupCaptureCoordinator.BoardPhase.Failed -> phase.message
 }

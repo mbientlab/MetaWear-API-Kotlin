@@ -3,15 +3,16 @@ package com.mbientlab.metawear.app.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mbientlab.metawear.app.core.AnyChartSample
-import com.mbientlab.metawear.app.ui.theme.GlassSurfaceHigh
 
 /**
  * Self-contained Canvas line chart for the decimated live buffer. One path
@@ -27,13 +28,14 @@ fun LineChart(
     modifier: Modifier = Modifier,
     height: Dp = 160.dp,
 ) {
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
     Canvas(
         modifier = modifier
             .fillMaxWidth()
             .height(height),
     ) {
         // Frame + midline.
-        drawRect(GlassSurfaceHigh, style = Stroke(width = 1.dp.toPx()))
+        drawRect(gridColor, style = Stroke(width = 1.dp.toPx()))
 
         if (samples.size < 2) return@Canvas
 
@@ -67,9 +69,9 @@ fun LineChart(
         val midValue = if (minY <= 0f && 0f <= maxY) 0f else (minY + maxY) / 2f
         val midY = size.height * (1f - (midValue - minY) / ySpan)
         drawLine(
-            GlassSurfaceHigh,
-            start = androidx.compose.ui.geometry.Offset(0f, midY),
-            end = androidx.compose.ui.geometry.Offset(size.width, midY),
+            gridColor,
+            start = Offset(0f, midY),
+            end = Offset(size.width, midY),
             strokeWidth = 1.dp.toPx(),
         )
 

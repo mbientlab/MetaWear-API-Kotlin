@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer: the lowercase "m" as a single-color glyph, sized to
+     the adaptive icon's 66dp safe zone. The launcher tints it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M28,71 V53 A15,15 0 0 1 58,53 V71 H50 V53 A7,7 0 0 0 36,53 V71 Z M50,71 V53 A15,15 0 0 1 80,53 V71 H72 V53 A7,7 0 0 0 58,53 V71 Z" />
+</vector>

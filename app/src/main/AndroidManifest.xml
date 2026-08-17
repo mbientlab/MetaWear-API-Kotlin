@@ -30,6 +30,8 @@
     <application
         android:name=".MetaWearApplication"
         android:label="MetaWear"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="tiramisu">
